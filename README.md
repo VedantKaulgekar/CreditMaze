@@ -91,7 +91,7 @@ This lets CreditMaze **directly measure credit assignment quality**: did the age
 ### Local
 
 ```bash
-git clone <repo>
+git clone https://github.com/VedantKaulgekar/CreditMaze.git
 cd creditmaze
 pip install -r requirements.txt
 python server.py
