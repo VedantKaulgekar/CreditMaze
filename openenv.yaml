@@ -1,0 +1,63 @@
+name: CreditMaze
+version: "1.0.0"
+description: >
+  Procedurally generated RL environment for measuring credit assignment quality
+  in long-horizon LLM agent tasks. Every episode contains a known pivotal
+  decision with ground-truth causal labels verified via counterfactual
+  simulation. Introduces PSIA, CCE, and MPCS as novel evaluation metrics.
+tags:
+  - openenv
+  - credit-assignment
+  - causal-rl
+  - long-horizon
+  - grpo
+  - process-reward
+tasks:
+  - id: corridor_easy
+    difficulty: easy
+    domain: corridor
+    tier: easy
+    description: "Navigate a branching corridor. One junction leads to exit, others loop."
+  - id: research_medium
+    difficulty: medium
+    domain: research
+    tier: medium
+    description: "Resolve contradicting research sources to produce correct synthesis."
+  - id: debugging_hard
+    difficulty: hard
+    domain: debugging
+    tier: hard
+    description: "Fix bugs in the correct order — dependency structure is hidden."
+  - id: triage_multipivot
+    difficulty: hard
+    domain: triage
+    tier: multi-pivot
+    description: "Identify multiple jointly-causal signals from correlated noise."
+action_schema:
+  type: object
+  properties:
+    action_id:
+      type: string
+      description: "Must be one of observation.available_actions"
+    reasoning:
+      type: string
+      description: "Agent chain-of-thought (optional, stored for PSIA analysis)"
+    credit_estimate:
+      type: number
+      minimum: 0.0
+      maximum: 1.0
+      description: "Agent self-reported importance of this step (used for CCE)"
+  required:
+    - action_id
+reward_range: [0.0, 1.0]
+max_steps: 110
+observation_schema: "environment/models.py::Observation"
+metrics:
+  - name: PSIA
+    description: "Pivotal Step Identification Accuracy — did agent assign max credit to true pivot?"
+  - name: CCE
+    description: "Credit Calibration Error — MSE between agent estimates and ground-truth labels"
+  - name: TSR
+    description: "Task Success Rate — standard outcome metric"
+  - name: MPCS
+    description: "Multi-Pivot Coordination Score — fraction of pivots found in Tier 4"
