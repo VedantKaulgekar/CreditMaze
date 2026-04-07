@@ -19,11 +19,11 @@ import httpx
 from openai import OpenAI
 
 ENV_URL = os.getenv("ENV_URL", "http://127.0.0.1:7860")
-API_BASE_URL = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
-MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
+API_BASE_URL = os.getenv("API_BASE_URL") or "https://router.huggingface.co/v1"
+MODEL_NAME = os.getenv("MODEL_NAME") or "Qwen/Qwen2.5-72B-Instruct"
 TASK_NAME = os.getenv("CREDITMAZE_TASK", "research_medium")
 BENCHMARK = os.getenv("CREDITMAZE_BENCHMARK", "creditmaze")
-HF_TOKEN = os.getenv("HF_TOKEN") or os.getenv("OPENAI_API_KEY") or os.getenv("API_KEY")
+HF_TOKEN = os.getenv("HF_TOKEN") or os.getenv("API_KEY") or os.getenv("OPENAI_API_KEY")
 LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME", "")
 SEED = int(os.getenv("CREDITMAZE_SEED", "42"))
 TIMEOUT = float(os.getenv("CREDITMAZE_TIMEOUT", "30"))

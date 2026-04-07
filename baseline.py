@@ -13,16 +13,17 @@ from __future__ import annotations
 import os, json, argparse, random
 import httpx
 
-ENV_URL    = os.getenv("ENV_URL", "http://localhost:7860")
-API_KEY    = os.getenv("OPENAI_API_KEY", "")
-MODEL_NAME = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+ENV_URL      = os.getenv("ENV_URL", "http://localhost:7860")
+API_BASE_URL = os.getenv("API_BASE_URL") or "https://router.huggingface.co/v1"
+API_KEY      = os.getenv("API_KEY") or os.getenv("HF_TOKEN") or os.getenv("OPENAI_API_KEY", "")
+MODEL_NAME   = os.getenv("MODEL_NAME") or os.getenv("OPENAI_MODEL", "Qwen/Qwen2.5-72B-Instruct")
 N_EPISODES = 5
 _LLM_DISABLED = False
 
 # Lazy-import openai so script works without it installed
 try:
     from openai import OpenAI
-    _openai_client = OpenAI(api_key=API_KEY, max_retries=0) if API_KEY else None
+    _openai_client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY, max_retries=0) if API_KEY else None
 except ImportError:
     _openai_client = None
 
