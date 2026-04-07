@@ -18,7 +18,7 @@ pinned: false
 
 ## What Is CreditMaze?
 
-Every episode contains exactly one (or more, in Tier 4) decision that **causally determines** the final outcome. All other decisions are carefully crafted **decoys** — actions that look important and generate small positive reward, but are causally irrelevant.
+Every episode contains exactly one (or more, in Tier 4) decision that **causally determines** the final outcome. All other decisions are carefully crafted **decoys** - actions that look important and generate small positive reward, but are causally irrelevant.
 
 This lets CreditMaze **directly measure credit assignment quality**: did the agent's training algorithm correctly identify which step actually mattered?
 
@@ -26,9 +26,9 @@ This lets CreditMaze **directly measure credit assignment quality**: did the age
 
 | Metric   | Definition                                                                                    |
 | -------- | --------------------------------------------------------------------------------------------- |
-| **PSIA** | Pivotal Step Identification Accuracy — did the agent assign highest credit to the true pivot? |
-| **CCE**  | Credit Calibration Error — MSE between agent credit estimates and ground-truth labels         |
-| **MPCS** | Multi-Pivot Coordination Score — fraction of jointly-pivotal steps found (Tier 4)             |
+| **PSIA** | Pivotal Step Identification Accuracy - did the agent assign highest credit to the true pivot? |
+| **CCE**  | Credit Calibration Error - MSE between agent credit estimates and ground-truth labels         |
+| **MPCS** | Multi-Pivot Coordination Score - fraction of jointly-pivotal steps found (Tier 4)             |
 
 ---
 
@@ -38,9 +38,9 @@ This lets CreditMaze **directly measure credit assignment quality**: did the age
 
 ```json
 {
-  "action_id": "string  (required) — must be in observation.available_actions",
-  "reasoning": "string  (optional) — agent chain-of-thought",
-  "credit_estimate": "float   (optional) — agent-reported step importance [0.0, 1.0]"
+  "action_id": "string  (required) - must be in observation.available_actions",
+  "reasoning": "string  (optional) - agent chain-of-thought",
+  "credit_estimate": "float   (optional) - agent-reported step importance [0.0, 1.0]"
 }
 ```
 
@@ -51,10 +51,10 @@ This lets CreditMaze **directly measure credit assignment quality**: did the age
   "episode_id": "string",
   "domain": "corridor | research | debugging | resource | triage",
   "tier": "easy | medium | hard | multi-pivot",
-  "t_total": "int — total designed steps",
-  "step_count": "int — current step index",
-  "max_steps": "int — hard termination cap",
-  "context": "string — full narrative context for this step",
+  "t_total": "int - total designed steps",
+  "step_count": "int - current step index",
+  "max_steps": "int - hard termination cap",
+  "context": "string - full narrative context for this step",
   "available_actions": ["list of valid action_ids"],
   "last_step_reward": "float | null",
   "cumulative_reward": "float | null",
@@ -72,7 +72,7 @@ CreditMaze includes four real-world task families plus one calibration task.
 | ------------------- | ----------- | --------- | ----------------------------------------------------------------------------------------------- |
 | `corridor_easy`     | easy        | corridor  | Calibration task: a minimal branching-decision environment with one causally decisive junction. |
 | `research_medium`   | medium      | research  | Resolve contradicting research sources to produce correct qualified synthesis.                  |
-| `debugging_hard`    | hard        | debugging | Fix bugs in the correct dependency order — wrong order creates irresolvable cycle.              |
+| `debugging_hard`    | hard        | debugging | Fix bugs in the correct dependency order - wrong order creates irresolvable cycle.              |
 | `resource_hard`     | hard        | resource  | Allocate a time-sensitive resource before an irreversible commitment window closes.             |
 | `triage_multipivot` | multi-pivot | triage    | Identify multiple jointly-causal signals from high-correlation noise.                           |
 
@@ -80,9 +80,9 @@ CreditMaze includes four real-world task families plus one calibration task.
 
 | Tier        | Steps | Pivots | Pivot Position | Decoy Similarity | Expected PSIA (GRPO) |
 | ----------- | ----- | ------ | -------------- | ---------------- | -------------------- |
-| Easy        | 10    | 1      | steps 5–9      | Low (0.2)        | ~0.65                |
-| Medium      | 14    | 1      | steps 1–5      | Medium (0.5)     | ~0.42                |
-| Hard        | 12    | 1      | steps 1–3      | High (0.8)       | ~0.20                |
+| Easy        | 10    | 1      | steps 5-9      | Low (0.2)        | ~0.65                |
+| Medium      | 14    | 1      | steps 1-5      | Medium (0.5)     | ~0.42                |
+| Hard        | 12    | 1      | steps 1-3      | High (0.8)       | ~0.20                |
 | Multi-pivot | 12    | 2      | distributed    | Very high (0.9)  | ~0.25                |
 
 ### Reward Function
@@ -97,7 +97,7 @@ CreditMaze includes four real-world task families plus one calibration task.
 
 Invalid actions also terminate the episode with `0.0` reward.
 
-**Design intent:** Step rewards are deliberately **non-revealing** — the pivotal step's reward (0.12) is indistinguishable from some decoy steps. This is what makes credit assignment hard.
+**Design intent:** Step rewards are deliberately **non-revealing** - the pivotal step's reward (0.12) is indistinguishable from some decoy steps. This is what makes credit assignment hard.
 
 ---
 
@@ -162,7 +162,7 @@ curl -X POST http://localhost:7860/step \
   -H "Content-Type: application/json" \
   -d '{"episode_id": "abc12345", "action_id": "continue_forward", "credit_estimate": 0.3}'
 
-# State (after done=True — reveals causal labels)
+# State (after done=True - reveals causal labels)
 curl "http://localhost:7860/state?episode_id=abc12345"
 ```
 
@@ -204,7 +204,7 @@ python sanity_check.py
 
 ## Credit Extraction
 
-CreditMaze ships with extractors for major 2025–2026 RL algorithms:
+CreditMaze ships with extractors for major 2025-2026 RL algorithms:
 
 ```python
 from credit_extraction import GRPOExtractor, PPOExtractor, IStarExtractor
@@ -229,10 +229,10 @@ credits = extractor.extract(trajectory, episode_id)
 
 CreditMaze introduces:
 
-1. **PSIA and CCE** — first metrics that directly measure credit assignment quality (not just task success)
-2. **Ground-truth causal labels** — verified via counterfactual simulation for every episode
-3. **Multi-pivot Tier 4** — first benchmark for jointly-causal credit assignment (MPCS metric)
-4. **Algorithm-agnostic credit extraction hook** — plug in GRPO, PPO, iStar, HCAPO, or any future method
+1. **PSIA and CCE** - first metrics that directly measure credit assignment quality (not just task success)
+2. **Ground-truth causal labels** - verified via counterfactual simulation for every episode
+3. **Multi-pivot Tier 4** - first benchmark for jointly-causal credit assignment (MPCS metric)
+4. **Algorithm-agnostic credit extraction hook** - plug in GRPO, PPO, iStar, HCAPO, or any future method
 
 ---
 
