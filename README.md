@@ -24,11 +24,11 @@ This lets CreditMaze **directly measure credit assignment quality**: did the age
 
 ### The Three Novel Metrics
 
-| Metric | Definition |
-|--------|-----------|
+| Metric   | Definition                                                                                    |
+| -------- | --------------------------------------------------------------------------------------------- |
 | **PSIA** | Pivotal Step Identification Accuracy — did the agent assign highest credit to the true pivot? |
-| **CCE** | Credit Calibration Error — MSE between agent credit estimates and ground-truth labels |
-| **MPCS** | Multi-Pivot Coordination Score — fraction of jointly-pivotal steps found (Tier 4) |
+| **CCE**  | Credit Calibration Error — MSE between agent credit estimates and ground-truth labels         |
+| **MPCS** | Multi-Pivot Coordination Score — fraction of jointly-pivotal steps found (Tier 4)             |
 
 ---
 
@@ -38,8 +38,8 @@ This lets CreditMaze **directly measure credit assignment quality**: did the age
 
 ```json
 {
-  "action_id":       "string  (required) — must be in observation.available_actions",
-  "reasoning":       "string  (optional) — agent chain-of-thought",
+  "action_id": "string  (required) — must be in observation.available_actions",
+  "reasoning": "string  (optional) — agent chain-of-thought",
   "credit_estimate": "float   (optional) — agent-reported step importance [0.0, 1.0]"
 }
 ```
@@ -48,17 +48,17 @@ This lets CreditMaze **directly measure credit assignment quality**: did the age
 
 ```json
 {
-  "episode_id":       "string",
-  "domain":           "corridor | research | debugging | resource | triage",
-  "tier":             "easy | medium | hard | multi-pivot",
-  "t_total":          "int — total designed steps",
-  "step_count":       "int — current step index",
-  "max_steps":        "int — hard termination cap",
-  "context":          "string — full narrative context for this step",
+  "episode_id": "string",
+  "domain": "corridor | research | debugging | resource | triage",
+  "tier": "easy | medium | hard | multi-pivot",
+  "t_total": "int — total designed steps",
+  "step_count": "int — current step index",
+  "max_steps": "int — hard termination cap",
+  "context": "string — full narrative context for this step",
   "available_actions": ["list of valid action_ids"],
   "last_step_reward": "float | null",
   "cumulative_reward": "float | null",
-  "episode_outcome":  "in_progress | success | failure | null"
+  "episode_outcome": "in_progress | success | failure | null"
 }
 ```
 
@@ -68,32 +68,32 @@ This lets CreditMaze **directly measure credit assignment quality**: did the age
 
 CreditMaze includes four real-world task families plus one calibration task.
 
-| Task ID | Tier | Domain | Description |
-|---------|------|--------|-------------|
-| `corridor_easy` | easy | corridor | Calibration task: a minimal branching-decision environment with one causally decisive junction. |
-| `research_medium` | medium | research | Resolve contradicting research sources to produce correct qualified synthesis. |
-| `debugging_hard` | hard | debugging | Fix bugs in the correct dependency order — wrong order creates irresolvable cycle. |
-| `resource_hard` | hard | resource | Allocate a time-sensitive resource before an irreversible commitment window closes. |
-| `triage_multipivot` | multi-pivot | triage | Identify multiple jointly-causal signals from high-correlation noise. |
+| Task ID             | Tier        | Domain    | Description                                                                                     |
+| ------------------- | ----------- | --------- | ----------------------------------------------------------------------------------------------- |
+| `corridor_easy`     | easy        | corridor  | Calibration task: a minimal branching-decision environment with one causally decisive junction. |
+| `research_medium`   | medium      | research  | Resolve contradicting research sources to produce correct qualified synthesis.                  |
+| `debugging_hard`    | hard        | debugging | Fix bugs in the correct dependency order — wrong order creates irresolvable cycle.              |
+| `resource_hard`     | hard        | resource  | Allocate a time-sensitive resource before an irreversible commitment window closes.             |
+| `triage_multipivot` | multi-pivot | triage    | Identify multiple jointly-causal signals from high-correlation noise.                           |
 
 ### Difficulty Tiers
 
-| Tier | Steps | Pivots | Pivot Position | Decoy Similarity | Expected PSIA (GRPO) |
-|------|-------|--------|----------------|-----------------|---------------------|
-| Easy | 10 | 1 | steps 5–9 | Low (0.2) | ~0.65 |
-| Medium | 14 | 1 | steps 1–5 | Medium (0.5) | ~0.42 |
-| Hard | 12 | 1 | steps 1–3 | High (0.8) | ~0.20 |
-| Multi-pivot | 12 | 2 | distributed | Very high (0.9) | ~0.25 |
+| Tier        | Steps | Pivots | Pivot Position | Decoy Similarity | Expected PSIA (GRPO) |
+| ----------- | ----- | ------ | -------------- | ---------------- | -------------------- |
+| Easy        | 10    | 1      | steps 5–9      | Low (0.2)        | ~0.65                |
+| Medium      | 14    | 1      | steps 1–5      | Medium (0.5)     | ~0.42                |
+| Hard        | 12    | 1      | steps 1–3      | High (0.8)       | ~0.20                |
+| Multi-pivot | 12    | 2      | distributed    | Very high (0.9)  | ~0.25                |
 
 ### Reward Function
 
-| Situation | Reward |
-|-----------|--------|
-| Decoy step (any valid action) | 0.04 |
-| Correct pivot action (not final) | 0.12 |
-| Incorrect pivot action | 0.0 (episode fails) |
+| Situation                             | Reward                       |
+| ------------------------------------- | ---------------------------- |
+| Decoy step (any valid action)         | 0.04                         |
+| Correct pivot action (not final)      | 0.12                         |
+| Incorrect pivot action                | 0.0 (episode fails)          |
 | Episode success (final pivot correct) | 0.5 + 0.5 × efficiency_bonus |
-| Episode failure | 0.0 |
+| Episode failure                       | 0.0                          |
 
 Invalid actions also terminate the episode with `0.0` reward.
 
@@ -125,15 +125,15 @@ docker run -p 7860:7860 creditmaze:latest
 
 ## API Reference
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/reset` | POST | Start new episode |
-| `/step` | POST | Submit action |
-| `/state` | GET | Get episode state (labels after done) |
-| `/tasks` | GET | List tasks + action schema |
-| `/grader` | POST | Get grader metrics for completed episode |
-| `/baseline` | POST | Run baseline inference script |
-| `/health` | GET | Health check |
+| Endpoint    | Method | Description                              |
+| ----------- | ------ | ---------------------------------------- |
+| `/reset`    | POST   | Start new episode                        |
+| `/step`     | POST   | Submit action                            |
+| `/state`    | GET    | Get episode state (labels after done)    |
+| `/tasks`    | GET    | List tasks + action schema               |
+| `/grader`   | POST   | Get grader metrics for completed episode |
+| `/baseline` | POST   | Run baseline inference script            |
+| `/health`   | GET    | Health check                             |
 
 ## Submission Inference
 
@@ -174,15 +174,15 @@ The default reproducible command is `python baseline.py`, which now runs `easy`,
 
 Current reproducible local baseline, measured with deterministic random fallback (no API key), 5 episodes per tier:
 
-| Tier | TSR | PSIA | CCE | MPCS |
-|------|-----|------|-----|------|
-| Easy | 0.613 | 0.000 | 0.316 | - |
-| Medium | 0.475 | 0.000 | 0.339 | - |
-| Hard | 0.389 | 0.000 | 0.346 | - |
+| Tier        | TSR   | PSIA  | CCE   | MPCS  |
+| ----------- | ----- | ----- | ----- | ----- |
+| Easy        | 0.613 | 0.000 | 0.316 | -     |
+| Medium      | 0.475 | 0.000 | 0.339 | -     |
+| Hard        | 0.389 | 0.000 | 0.346 | -     |
 | Multi-pivot | 0.280 | 0.049 | 0.338 | 0.327 |
 
-*Run `python baseline.py` for the current default aggregate benchmark. Set `OPENAI_API_KEY` to use an LLM and regenerate model-backed scores before publishing them.*
-*Without API key: deterministic random-policy fallback runs automatically.*
+_Run `python baseline.py` for the current default aggregate benchmark. Set `OPENAI_API_KEY` to use an LLM and regenerate model-backed scores before publishing them._
+_Without API key: deterministic random-policy fallback runs automatically._
 
 ---
 
