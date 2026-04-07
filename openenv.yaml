@@ -17,7 +17,7 @@ tasks:
     difficulty: easy
     domain: corridor
     tier: easy
-    description: "Navigate a branching corridor. One junction leads to exit, others loop."
+    description: "Calibration task: navigate a branching corridor where one junction is causally decisive."
   - id: research_medium
     difficulty: medium
     domain: research
@@ -28,6 +28,11 @@ tasks:
     domain: debugging
     tier: hard
     description: "Fix bugs in the correct order — dependency structure is hidden."
+  - id: resource_hard
+    difficulty: hard
+    domain: resource
+    tier: hard
+    description: "Allocate a time-sensitive resource before an irreversible commitment window closes."
   - id: triage_multipivot
     difficulty: hard
     domain: triage

@@ -56,11 +56,14 @@ This lets CreditMaze **directly measure credit assignment quality**: did the age
 
 ### Task Descriptions
 
+CreditMaze includes four real-world task families plus one calibration task.
+
 | Task ID | Tier | Domain | Description |
 |---------|------|--------|-------------|
-| `corridor_easy` | easy | corridor | Navigate branching corridors. One junction leads to exit; others loop. |
+| `corridor_easy` | easy | corridor | Calibration task: a minimal branching-decision environment with one causally decisive junction. |
 | `research_medium` | medium | research | Resolve contradicting research sources to produce correct qualified synthesis. |
 | `debugging_hard` | hard | debugging | Fix bugs in the correct dependency order — wrong order creates irresolvable cycle. |
+| `resource_hard` | hard | resource | Allocate a time-sensitive resource before an irreversible commitment window closes. |
 | `triage_multipivot` | multi-pivot | triage | Identify multiple jointly-causal signals from high-correlation noise. |
 
 ### Difficulty Tiers
@@ -82,9 +85,13 @@ This lets CreditMaze **directly measure credit assignment quality**: did the age
 | Episode success (final pivot correct) | 0.5 + 0.5 × efficiency_bonus |
 | Episode failure | 0.0 |
 
+Invalid actions also terminate the episode with `0.0` reward.
+
 **Design intent:** Step rewards are deliberately **non-revealing** — the pivotal step's reward (0.12) is indistinguishable from some decoy steps. This is what makes credit assignment hard.
 
 ---
+
+The `/grader` endpoint separately returns a normalized `score` in `[0, 1]` plus `raw_reward` for analysis.
 
 ## Setup
 
@@ -118,6 +125,20 @@ docker run -p 7860:7860 creditmaze:latest
 | `/baseline` | POST | Run baseline inference script |
 | `/health` | GET | Health check |
 
+## Submission Inference
+
+For hackathon submission, use the root-level `inference.py` script. It uses the OpenAI client, reads `API_BASE_URL`, `MODEL_NAME`, and `HF_TOKEN` / `OPENAI_API_KEY`, emits strict `[START]`, `[STEP]`, and `[END]` lines, and can auto-start the local environment server when `ENV_URL` points at `localhost`.
+
+```bash
+python inference.py
+```
+
+To evaluate a specific task:
+
+```bash
+CREDITMAZE_TASK=debugging_hard python inference.py
+```
+
 ### Example Session
 
 ```bash
@@ -139,6 +160,8 @@ curl "http://localhost:7860/state?episode_id=abc12345"
 
 ## Baseline Scores
 
+The default reproducible command is `python baseline.py`, which now runs `easy`, `medium`, `hard`, and `multi-pivot` and prints a final JSON summary. With `OPENAI_API_KEY` set, it uses the OpenAI client against the configured model. Without a key, it falls back to a deterministic random policy for smoke testing.
+
 Measured with `gpt-4o-mini`, 5 episodes per tier, recency-biased credit estimates:
 
 | Tier | TSR | PSIA | CCE | MPCS |
@@ -148,8 +171,8 @@ Measured with `gpt-4o-mini`, 5 episodes per tier, recency-biased credit estimate
 | Hard | 0.20 | 0.18 | 0.46 | — |
 | Multi-pivot | 0.30 | 0.28 | 0.42 | 0.32 |
 
-*Run `python baseline.py` to reproduce. Requires `OPENAI_API_KEY` in environment.*
-*Without API key: random-policy baseline runs automatically.*
+*Run `python baseline.py` for the current default aggregate benchmark. Set `OPENAI_API_KEY` to use an LLM.*
+*Without API key: deterministic random-policy fallback runs automatically.*
 
 ---
 

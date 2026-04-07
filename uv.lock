@@ -1,0 +1,18 @@
+version = 1
+revision = 3
+requires-python = ">=3.11"
+
+[[package]]
+name = "creditmaze"
+version = "1.0.0"
+source = { editable = "." }
+dependencies = [
+  { name = "fastapi" },
+  { name = "httpx" },
+  { name = "numpy" },
+  { name = "openai" },
+  { name = "openenv-core" },
+  { name = "pydantic" },
+  { name = "pyyaml" },
+  { name = "uvicorn" },
+]

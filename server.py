@@ -91,9 +91,10 @@ def state(episode_id: str):
 def tasks():
     return {
         "tasks": [
-            {"id": "corridor_easy",    "difficulty": "easy",   "domain": "corridor",  "tier": "easy",         "description": "Navigate branching corridors. One junction leads to exit; others loop.", "expected_psia": 0.65},
+            {"id": "corridor_easy",    "difficulty": "easy",   "domain": "corridor",  "tier": "easy",         "description": "Calibration task: a minimal branching-decision environment with one causally decisive junction.", "expected_psia": 0.65},
             {"id": "research_medium",  "difficulty": "medium", "domain": "research",  "tier": "medium",       "description": "Resolve contradicting sources to produce correct qualified synthesis.",  "expected_psia": 0.42},
             {"id": "debugging_hard",   "difficulty": "hard",   "domain": "debugging", "tier": "hard",         "description": "Fix bugs in correct dependency order.",                                   "expected_psia": 0.20},
+            {"id": "resource_hard",    "difficulty": "hard",   "domain": "resource",  "tier": "hard",         "description": "Allocate time-sensitive resources before an irreversible window closes.", "expected_psia": 0.24},
             {"id": "triage_multipivot","difficulty": "hard",   "domain": "triage",    "tier": "multi-pivot",  "description": "Identify multiple jointly-causal signals from noise.",                   "expected_mpcs": 0.35},
         ],
         "action_schema": {
@@ -127,7 +128,8 @@ def grader(req: GraderRequest):
     return {
         "episode_id":           req.episode_id,
         "outcome":              s.outcome,
-        "score":                round(s.cumulative_reward, 4),
+        "score":                env.normalized_score(req.episode_id),
+        "raw_reward":           round(s.cumulative_reward, 4),
         "session_psia":         s.session_psia,
         "session_cce":          s.session_cce,
         "session_tsr":          s.session_tsr,
@@ -160,6 +162,10 @@ def health():
     return {"status": "ok", "version": "1.0.0", "environment": "CreditMaze"}
 
 
-if __name__ == "__main__":
+def main():
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=7860)
+
+
+if __name__ == "__main__":
+    main()

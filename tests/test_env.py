@@ -366,6 +366,14 @@ class TestCreditMazeEnv:
         result = env.step(ep, Action(action_id=obs.available_actions[0]))
         assert 0.0 <= result.reward <= 1.0
 
+    def test_invalid_action_fails_with_zero_reward(self, env):
+        obs = env.reset(tier="easy", seed=42)
+        ep = obs.episode_id
+        result = env.step(ep, Action(action_id="definitely_invalid"))
+        assert result.done is True
+        assert result.reward == 0.0
+        assert result.info.episode_outcome == "failure"
+
     def test_causal_labels_hidden_during_episode(self, env):
         obs = env.reset(tier="easy", seed=42)
         ep  = obs.episode_id
@@ -424,6 +432,17 @@ class TestCreditMazeEnv:
         assert 0.0 <= state.session_psia <= 1.0
         assert 0.0 <= state.session_cce  <= 1.0
         assert 0.0 <= state.session_tsr  <= 1.0
+
+    def test_normalized_score_in_unit_interval(self, env):
+        obs = env.reset(tier="easy", domain="corridor", seed=42)
+        ep = obs.episode_id
+        for _ in range(obs.max_steps):
+            result = env.step(ep, Action(action_id=obs.available_actions[0], credit_estimate=0.5))
+            obs = result.observation
+            if result.done:
+                break
+        score = env.normalized_score(ep)
+        assert 0.0 <= score <= 1.0
 
     def test_seed_reproducibility(self, env):
         obs1 = env.reset(tier="easy", domain="corridor", seed=7)

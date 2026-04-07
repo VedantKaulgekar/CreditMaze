@@ -5,6 +5,7 @@ Compatible with: openai >=2.7, httpx >=0.28
 Usage:
   python baseline.py                      # 5 episodes per tier
   python baseline.py --n 1 --tiers easy   # quick smoke test
+  python baseline.py --model gpt-4o-mini  # choose model explicitly
 
 If OPENAI_API_KEY is not set, runs a random-policy baseline automatically.
 """
@@ -14,12 +15,14 @@ import httpx
 
 ENV_URL    = os.getenv("ENV_URL", "http://localhost:7860")
 API_KEY    = os.getenv("OPENAI_API_KEY", "")
+MODEL_NAME = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 N_EPISODES = 5
+_LLM_DISABLED = False
 
 # Lazy-import openai so script works without it installed
 try:
     from openai import OpenAI
-    _openai_client = OpenAI(api_key=API_KEY) if API_KEY else None
+    _openai_client = OpenAI(api_key=API_KEY, max_retries=0) if API_KEY else None
 except ImportError:
     _openai_client = None
 
@@ -38,8 +41,9 @@ Respond ONLY with valid JSON (no markdown fences):
 {"action_id": "...", "reasoning": "...", "credit_estimate": 0.0}"""
 
 
-def _call_agent(obs: dict) -> dict:
+def _call_agent(obs: dict, model: str) -> dict:
     """Call LLM agent or fall back to random baseline."""
+    global _LLM_DISABLED
     prompt = (
         f"Domain: {obs['domain']} | Tier: {obs['tier']}\n"
         f"Step {obs['step_count'] + 1} of {obs['t_total']} total steps\n\n"
@@ -50,10 +54,10 @@ def _call_agent(obs: dict) -> dict:
         "Identify which step actually changes the outcome."
     )
 
-    if _openai_client:
+    if _openai_client and not _LLM_DISABLED:
         try:
             response = _openai_client.chat.completions.create(
-                model="gpt-4o-mini",
+                model=model,
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user",   "content": prompt},
@@ -63,7 +67,10 @@ def _call_agent(obs: dict) -> dict:
             )
             return json.loads(response.choices[0].message.content)
         except Exception as e:
-            print(f"  [warn] OpenAI call failed: {e} - using random fallback")
+            print(f"  [warn] OpenAI call failed for model '{model}': {e} - using random fallback")
+            error_text = str(e).lower()
+            if "insufficient_quota" in error_text or "429" in error_text:
+                _LLM_DISABLED = True
 
     # Random baseline (no API key, or API error)
     return {
@@ -73,7 +80,7 @@ def _call_agent(obs: dict) -> dict:
     }
 
 
-def run_episode(http: httpx.Client, tier: str, domain: str, seed: int) -> dict:
+def run_episode(http: httpx.Client, tier: str, domain: str, seed: int, model: str) -> dict:
     """Run one complete episode. Returns per-episode metrics."""
     # Reset
     obs = http.post("/reset", json={"tier": tier, "domain": domain, "seed": seed}).json()
@@ -81,7 +88,7 @@ def run_episode(http: httpx.Client, tier: str, domain: str, seed: int) -> dict:
     total_reward = 0.0
 
     for _ in range(obs["max_steps"]):
-        decision  = _call_agent(obs)
+        decision  = _call_agent(obs, model=model)
         action_id = decision.get("action_id", obs["available_actions"][0])
 
         # Validate action
@@ -113,7 +120,7 @@ def run_episode(http: httpx.Client, tier: str, domain: str, seed: int) -> dict:
     }
 
 
-def run_tier(tier: str, n: int = N_EPISODES) -> dict:
+def run_tier(tier: str, n: int = N_EPISODES, model: str = MODEL_NAME) -> dict:
     """Run N episodes for one tier and aggregate."""
     domains  = ["corridor", "research", "debugging", "resource", "triage"]
     results  = []
@@ -122,7 +129,7 @@ def run_tier(tier: str, n: int = N_EPISODES) -> dict:
         for i in range(n):
             domain = domains[i % len(domains)]
             try:
-                r = run_episode(http, tier=tier, domain=domain, seed=42 + i)
+                r = run_episode(http, tier=tier, domain=domain, seed=42 + i, model=model)
                 results.append(r)
                 print(f"  ep{i+1}: {r['outcome']:10s} reward={r['reward']:.3f} psia={r['psia']:.3f}")
             except Exception as e:
@@ -143,17 +150,17 @@ def run_tier(tier: str, n: int = N_EPISODES) -> dict:
     }
 
 
-def main(tiers=None, n=N_EPISODES):
-    tiers = tiers or ["easy", "medium", "hard"]
+def main(tiers=None, n=N_EPISODES, model=MODEL_NAME):
+    tiers = tiers or ["easy", "medium", "hard", "multi-pivot"]
     all_results = {}
 
-    mode = "GPT-4o-mini" if _openai_client else "Random baseline (no API key)"
+    mode = f"LLM baseline ({model})" if _openai_client else "Random baseline (no API key)"
     print(f"\nCreditMaze Baseline - {mode}")
     print("=" * 55)
 
     for tier in tiers:
         print(f"\nTier: {tier}  ({n} episodes)")
-        result = run_tier(tier, n=n)
+        result = run_tier(tier, n=n, model=model)
         all_results[tier] = result
         print(f"  -> TSR={result['tsr']:.3f}  PSIA={result['psia']:.3f}  CCE={result['cce']:.3f}  MPCS={result['mpcs']:.3f}")
 
@@ -170,7 +177,8 @@ def main(tiers=None, n=N_EPISODES):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="CreditMaze Baseline Runner")
-    parser.add_argument("--tiers", nargs="+", default=["easy", "medium", "hard"])
+    parser.add_argument("--tiers", nargs="+", default=["easy", "medium", "hard", "multi-pivot"])
     parser.add_argument("--n", type=int, default=N_EPISODES)
+    parser.add_argument("--model", default=MODEL_NAME)
     args = parser.parse_args()
-    main(tiers=args.tiers, n=args.n)
+    main(tiers=args.tiers, n=args.n, model=args.model)

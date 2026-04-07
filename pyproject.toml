@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "creditmaze"
+version = "1.0.0"
+description = "OpenEnv-compatible benchmark for evaluating credit assignment in long-horizon agent tasks."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+  { name = "CreditMaze Team" }
+]
+dependencies = [
+  "fastapi>=0.115.2",
+  "uvicorn[standard]>=0.31.1",
+  "pydantic>=2.7.4",
+  "openai>=2.7.2",
+  "openenv-core>=0.2.0",
+  "httpx>=0.28.1",
+  "numpy>=1.26.4",
+  "pyyaml>=6.0.1",
+]
+
+[project.scripts]
+server = "server.app:main"
+
+[tool.setuptools]
+packages = ["environment", "credit_extraction"]

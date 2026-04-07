@@ -106,18 +106,19 @@ class CreditMazeEnv:
         # Validate action
         available = ep.current_step.get("available_actions", [])
         action_id = action.action_id
-        if available and action_id not in available:
-            # Penalise invalid action but don't crash
-            action_id = available[0]
+        invalid_action = bool(available and action_id not in available)
 
         # Record history
         ep.step_history.append((action_id, action.credit_estimate))
         ep.step_count += 1
 
-        # Advance causal simulator
-        outcome, base_reward = self.simulator.advance(
-            ep.episode, step_idx, action_id
-        )
+        if invalid_action:
+            outcome = "failure"
+        else:
+            # Advance causal simulator
+            outcome, _ = self.simulator.advance(
+                ep.episode, step_idx, action_id
+            )
 
         pivot_set = set(ep.episode.pivotal_indices)
         if step_idx in pivot_set and outcome != "failure":
@@ -221,6 +222,15 @@ class CreditMazeEnv:
             episodes_completed=self.metrics.n_complete,
         )
 
+    def normalized_score(self, episode_id: str) -> float:
+        """Return a deterministic per-episode score in [0, 1]."""
+        ep = self._get_episode(episode_id)
+        max_reward = self._max_possible_reward(ep.episode)
+        if max_reward <= 0:
+            return 0.0
+        score = ep.cumulative_reward / max_reward
+        return round(min(max(score, 0.0), 1.0), 4)
+
     # ── helpers ───────────────────────────────────────────────────────────────
 
     def _get_episode(self, episode_id: str) -> EpisodeState:
@@ -239,6 +249,29 @@ class CreditMazeEnv:
             str(episode.t_total),
         ])
         return hashlib.sha1(fingerprint.encode("utf-8")).hexdigest()[:8]
+
+    def _max_possible_reward(self, episode: Episode) -> float:
+        """Maximum achievable cumulative reward for a successful trajectory."""
+        pivot_set = set(episode.pivotal_indices)
+        total = 0.0
+        for step_idx in range(episode.t_total):
+            if step_idx == episode.t_total - 1:
+                total += compute_step_reward(
+                    outcome="success",
+                    step_idx=step_idx,
+                    is_pivotal=(step_idx in pivot_set),
+                    n_steps_taken=episode.t_total,
+                    max_steps=episode.max_steps,
+                )
+            else:
+                total += compute_step_reward(
+                    outcome="in_progress",
+                    step_idx=step_idx,
+                    is_pivotal=(step_idx in pivot_set),
+                    n_steps_taken=step_idx + 1,
+                    max_steps=episode.max_steps,
+                )
+        return round(total, 4)
 
     def _make_obs(
         self,
