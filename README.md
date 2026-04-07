@@ -172,6 +172,8 @@ curl "http://localhost:7860/state?episode_id=abc12345"
 
 The default reproducible command is `python baseline.py`, which now runs `easy`, `medium`, `hard`, and `multi-pivot` and prints a final JSON summary. With `OPENAI_API_KEY` set, it uses the OpenAI client against the configured model. Without a key, it falls back to a deterministic random policy for smoke testing.
 
+The table below reports the current reproducible random-fallback baseline. Evaluators can regenerate model-backed scores by setting `OPENAI_API_KEY` and rerunning `baseline.py` or `inference.py`.
+
 Current reproducible local baseline, measured with deterministic random fallback (no API key), 5 episodes per tier:
 
 | Tier        | TSR   | PSIA  | CCE   | MPCS  |
