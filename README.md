@@ -172,16 +172,16 @@ curl "http://localhost:7860/state?episode_id=abc12345"
 
 The default reproducible command is `python baseline.py`, which now runs `easy`, `medium`, `hard`, and `multi-pivot` and prints a final JSON summary. With `OPENAI_API_KEY` set, it uses the OpenAI client against the configured model. Without a key, it falls back to a deterministic random policy for smoke testing.
 
-Measured with `gpt-4o-mini`, 5 episodes per tier, recency-biased credit estimates:
+Current reproducible local baseline, measured with deterministic random fallback (no API key), 5 episodes per tier:
 
 | Tier | TSR | PSIA | CCE | MPCS |
 |------|-----|------|-----|------|
-| Easy | 0.60 | 0.65 | 0.31 | — |
-| Medium | 0.40 | 0.38 | 0.39 | — |
-| Hard | 0.20 | 0.18 | 0.46 | — |
-| Multi-pivot | 0.30 | 0.28 | 0.42 | 0.32 |
+| Easy | 0.613 | 0.000 | 0.316 | - |
+| Medium | 0.475 | 0.000 | 0.339 | - |
+| Hard | 0.389 | 0.000 | 0.346 | - |
+| Multi-pivot | 0.280 | 0.049 | 0.338 | 0.327 |
 
-*Run `python baseline.py` for the current default aggregate benchmark. Set `OPENAI_API_KEY` to use an LLM.*
+*Run `python baseline.py` for the current default aggregate benchmark. Set `OPENAI_API_KEY` to use an LLM and regenerate model-backed scores before publishing them.*
 *Without API key: deterministic random-policy fallback runs automatically.*
 
 ---
