@@ -157,6 +157,24 @@ def baseline():
         raise HTTPException(500, "Baseline script did not produce valid JSON")
 
 
+@app.get("/")
+def root():
+    return {
+        "name": "CreditMaze",
+        "status": "ok",
+        "message": "CreditMaze is running.",
+        "endpoints": [
+            "/health",
+            "/tasks",
+            "/reset",
+            "/step",
+            "/state",
+            "/grader",
+            "/baseline",
+        ],
+    }
+
+
 @app.get("/health")
 def health():
     return {"status": "ok", "version": "1.0.0", "environment": "CreditMaze"}
