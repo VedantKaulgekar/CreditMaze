@@ -1,3 +1,13 @@
+---
+title: CreditMaze
+emoji: "🧭"
+colorFrom: blue
+colorTo: green
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # CreditMaze
 
 **The first RL environment purpose-built to isolate and measure credit assignment quality in long-horizon LLM agent tasks.**
