@@ -22,6 +22,12 @@ Every episode contains exactly one (or more, in Tier 4) decision that **causally
 
 This lets CreditMaze **directly measure credit assignment quality**: did the agent's training algorithm correctly identify which step actually mattered?
 
+## Why This Matters
+
+In long-horizon agent tasks, success often depends on one critical earlier decision, while many other steps look important but are actually distractions. Standard RL benchmarks usually measure only whether the agent eventually succeeds, not whether it assigned credit to the step that truly caused the outcome.
+
+CreditMaze is designed to evaluate that missing ability. Each episode contains hidden pivotal steps, realistic decoy actions, and ground-truth causal labels, so researchers can measure not just task success, but whether an agent correctly identified the actions that actually mattered.
+
 ### The Three Novel Metrics
 
 | Metric   | Definition                                                                                    |
