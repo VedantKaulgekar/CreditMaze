@@ -106,21 +106,6 @@ def tasks():
             {"id": "task_medium", "difficulty": "medium", "max_steps": 15, "grader": grader_meta("task_medium", "This task maps to the environment's canonical medium benchmark episode.")},
             {"id": "task_hard",   "difficulty": "hard",   "max_steps": 15, "grader": grader_meta("task_hard", "This task maps to the environment's canonical hard benchmark episode.")},
         ],
-        "action_schema": {
-            "type": "object",
-            "properties": {
-                "action_id":       {"type": "string",  "description": "Must be in observation.available_actions"},
-                "reasoning":       {"type": "string",  "description": "Agent chain-of-thought"},
-                "credit_estimate": {"type": "number",  "minimum": 0.0, "maximum": 1.0, "description": "Step importance [0,1]"},
-            },
-            "required": ["action_id"],
-        },
-        "metrics_explained": {
-            "PSIA": "Pivotal Step Identification Accuracy",
-            "CCE":  "Credit Calibration Error — MSE vs ground-truth",
-            "TSR":  "Task Success Rate",
-            "MPCS": "Multi-Pivot Coordination Score (Tier 4)",
-        },
     }
 
 
