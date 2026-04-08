@@ -185,12 +185,15 @@ def main() -> None:
                 if done:
                     break
 
+            _ = http.get("/state", params={"episode_id": obs["episode_id"]}).json()
             grader = http.post("/grader", json={"episode_id": obs["episode_id"]}).json()
-            score = float(grader.get("score", 0.0))
+            score = float(grader.get("score", 0.01))
+            score = min(max(score, 0.01), 0.99)
             success = str(grader.get("outcome", "failure")) == "success"
 
     except Exception:
         success = False
+        score = min(max(score or 0.01, 0.01), 0.99)
     finally:
         if server_proc is not None:
             server_proc.terminate()
