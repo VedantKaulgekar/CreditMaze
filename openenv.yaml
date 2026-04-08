@@ -1,5 +1,10 @@
+spec_version: 1
 name: CreditMaze
 version: "1.0.0"
+type: space
+runtime: fastapi
+app: server.app:app
+port: 7860
 description: >
   Procedurally generated RL environment for measuring credit assignment quality
   in long-horizon LLM agent tasks. Every episode contains a known pivotal
@@ -15,29 +20,59 @@ tags:
 tasks:
   - id: corridor_easy
     difficulty: easy
+    max_steps: 15
     domain: corridor
     tier: easy
     description: "Calibration task: navigate a branching corridor where one junction is causally decisive."
+    grader:
+      type: programmatic
+      endpoint: /grader
+      score_range: [0.01, 0.99]
+      description: "Returns normalized final score plus PSIA, CCE, TSR, and MPCS from the internal environment grader."
   - id: research_medium
     difficulty: medium
+    max_steps: 15
     domain: research
     tier: medium
     description: "Resolve contradicting research sources to produce correct synthesis."
+    grader:
+      type: programmatic
+      endpoint: /grader
+      score_range: [0.01, 0.99]
+      description: "Returns normalized final score plus PSIA, CCE, TSR, and MPCS from the internal environment grader."
   - id: debugging_hard
     difficulty: hard
+    max_steps: 15
     domain: debugging
     tier: hard
-    description: "Fix bugs in the correct order — dependency structure is hidden."
+    description: "Fix bugs in the correct order - dependency structure is hidden."
+    grader:
+      type: programmatic
+      endpoint: /grader
+      score_range: [0.01, 0.99]
+      description: "Returns normalized final score plus PSIA, CCE, TSR, and MPCS from the internal environment grader."
   - id: resource_hard
     difficulty: hard
+    max_steps: 15
     domain: resource
     tier: hard
     description: "Allocate a time-sensitive resource before an irreversible commitment window closes."
+    grader:
+      type: programmatic
+      endpoint: /grader
+      score_range: [0.01, 0.99]
+      description: "Returns normalized final score plus PSIA, CCE, TSR, and MPCS from the internal environment grader."
   - id: triage_multipivot
     difficulty: hard
+    max_steps: 15
     domain: triage
     tier: multi-pivot
     description: "Identify multiple jointly-causal signals from correlated noise."
+    grader:
+      type: programmatic
+      endpoint: /grader
+      score_range: [0.01, 0.99]
+      description: "Returns normalized final score plus PSIA, CCE, TSR, and MPCS from the internal environment grader."
 action_schema:
   type: object
   properties:
@@ -59,10 +94,10 @@ max_steps: 110
 observation_schema: "environment/models.py::Observation"
 metrics:
   - name: PSIA
-    description: "Pivotal Step Identification Accuracy — did agent assign max credit to true pivot?"
+    description: "Pivotal Step Identification Accuracy - did agent assign max credit to true pivot?"
   - name: CCE
-    description: "Credit Calibration Error — MSE between agent estimates and ground-truth labels"
+    description: "Credit Calibration Error - MSE between agent estimates and ground-truth labels"
   - name: TSR
-    description: "Task Success Rate — standard outcome metric"
+    description: "Task Success Rate - standard outcome metric"
   - name: MPCS
-    description: "Multi-Pivot Coordination Score — fraction of pivots found in Tier 4"
+    description: "Multi-Pivot Coordination Score - fraction of pivots found in Tier 4"
