@@ -223,13 +223,13 @@ class CreditMazeEnv:
         )
 
     def normalized_score(self, episode_id: str) -> float:
-        """Return a deterministic per-episode score in [0, 1]."""
+        """Return a deterministic per-episode score in the open interval (0, 1)."""
         ep = self._get_episode(episode_id)
         max_reward = self._max_possible_reward(ep.episode)
         if max_reward <= 0:
-            return 0.0
+            return 0.01
         score = ep.cumulative_reward / max_reward
-        return round(min(max(score, 0.0), 1.0), 4)
+        return round(min(max(score, 0.01), 0.99), 4)
 
     # ── helpers ───────────────────────────────────────────────────────────────
 
