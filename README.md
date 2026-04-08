@@ -10,7 +10,7 @@ pinned: false
 
 # CreditMaze
 
-**The first RL environment purpose-built to isolate and measure credit assignment quality in long-horizon LLM agent tasks.**
+**An OpenEnv-compatible RL benchmark purpose-built to isolate and measure credit assignment quality in long-horizon LLM agent tasks.**
 
 [![OpenEnv](https://img.shields.io/badge/OpenEnv-compatible-blue)](https://openenv.ai)
 
