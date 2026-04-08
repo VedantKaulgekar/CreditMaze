@@ -28,6 +28,28 @@ In long-horizon agent tasks, success often depends on one critical earlier decis
 
 CreditMaze is designed to evaluate that missing ability. Each episode contains hidden pivotal steps, realistic decoy actions, and ground-truth causal labels, so researchers can measure not just task success, but whether an agent correctly identified the actions that actually mattered.
 
+### Why Now
+
+Recent agentic RL work, including ICLR 2026 discussion around long-horizon LLM training, has highlighted credit assignment as a central bottleneck: rewards are sparse and delayed, but trajectories contain many intermediate decisions and long reasoning traces. In that setting, it becomes hard to tell which earlier step truly caused the final result.
+
+This problem is especially important for methods such as GRPO and related value-free approaches, where a final trajectory-level reward can wash out the contribution of the specific step that actually mattered.
+
+### Why LLM Agents Make It Harder
+
+In classical RL, a step is often a small atomic action. In LLM agents, a single step can include a long chain of reasoning plus an external action. That makes long-horizon trajectories much more expensive to analyze and makes step-level credit assignment much noisier.
+
+As a result, two trajectories may end with the same outcome while hiding very different causal stories. A benchmark that only measures final success cannot distinguish luck from correct credit assignment.
+
+### The Gap CreditMaze Fills
+
+Recent credit-assignment methods are often evaluated on different tasks and domains, which makes side-by-side comparison difficult. Existing agent benchmarks like WebShop, ALFWorld, SWE-bench, and TheAgentCompany mainly measure whether the final goal was achieved, not whether the agent identified the causally decisive intermediate step.
+
+CreditMaze fills that gap by providing:
+
+1. Ground-truth causal credit labels for every episode, verified by counterfactual simulation.
+2. PSIA, CCE, and MPCS, which measure credit assignment quality directly rather than only final success.
+3. A shared, reproducible testbed where different 2025-2026 credit-assignment methods can be compared under the same conditions.
+
 ### The Three Novel Metrics
 
 | Metric   | Definition                                                                                    |
