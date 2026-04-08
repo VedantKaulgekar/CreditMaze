@@ -100,13 +100,13 @@ def wait_for_server() -> None:
     raise RuntimeError("environment_unreachable")
 
 
-def choose_action(client: Optional[OpenAI], obs: dict) -> dict:
+def choose_action(client: Optional[OpenAI], obs: dict) -> tuple[dict, Optional[str]]:
     if client is None:
-        return {
+        return ({
             "action_id": random.choice(obs["available_actions"]),
             "reasoning": "Random fallback",
             "credit_estimate": 0.5,
-        }
+        }, "random_fallback:no_credentials")
 
     prompt = (
         f"Task: {TASK_NAME}\n"
@@ -131,13 +131,13 @@ def choose_action(client: Optional[OpenAI], obs: dict) -> dict:
         parsed = json.loads(content)
         credit = float(parsed.get("credit_estimate", 0.5))
         parsed["credit_estimate"] = min(max(credit, 0.0), 1.0)
-        return parsed
-    except Exception:
-        return {
+        return parsed, None
+    except Exception as exc:
+        return ({
             "action_id": random.choice(obs["available_actions"]),
             "reasoning": "Random fallback",
             "credit_estimate": 0.5,
-        }
+        }, f"random_fallback:model_call_failed:{type(exc).__name__}")
 
 
 def main() -> None:
@@ -160,7 +160,7 @@ def main() -> None:
             max_steps = int(obs["max_steps"])
 
             for step in range(1, max_steps + 1):
-                decision = choose_action(client, obs)
+                decision, step_error = choose_action(client, obs)
                 action_id = decision.get("action_id", obs["available_actions"][0])
                 if action_id not in obs["available_actions"]:
                     action_id = obs["available_actions"][0]
@@ -179,7 +179,7 @@ def main() -> None:
                 done = bool(result.get("done", False))
                 rewards.append(reward)
                 steps_taken = step
-                log_step(step=step, action=action_id, reward=reward, done=done, error=None)
+                log_step(step=step, action=action_id, reward=reward, done=done, error=step_error)
 
                 obs = result["observation"]
                 if done:
