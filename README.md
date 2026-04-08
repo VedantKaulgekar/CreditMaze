@@ -94,15 +94,17 @@ CreditMaze fills that gap by providing:
 
 ### Task Descriptions
 
-CreditMaze includes four real-world task families plus one calibration task.
+For submission and evaluation, CreditMaze exposes three canonical benchmark tasks plus two additional hard-task variants.
 
 | Task ID             | Tier        | Domain    | Description                                                                                     |
 | ------------------- | ----------- | --------- | ----------------------------------------------------------------------------------------------- |
-| `corridor_easy`     | easy        | corridor  | Calibration task: a minimal branching-decision environment with one causally decisive junction. |
-| `research_medium`   | medium      | research  | Resolve contradicting research sources to produce correct qualified synthesis.                  |
-| `debugging_hard`    | hard        | debugging | Fix bugs in the correct dependency order - wrong order creates irresolvable cycle.              |
+| `task_easy`         | easy        | corridor  | Calibration task: a minimal branching-decision environment with one causally decisive junction. |
+| `task_medium`       | medium      | research  | Resolve contradicting research sources to produce correct qualified synthesis.                  |
+| `task_hard`         | hard        | debugging | Fix bugs in the correct dependency order - wrong order creates irresolvable cycle.              |
 | `resource_hard`     | hard        | resource  | Allocate a time-sensitive resource before an irreversible commitment window closes.             |
 | `triage_multipivot` | multi-pivot | triage    | Identify multiple jointly-causal signals from high-correlation noise.                           |
+
+Internally, the canonical tasks map to the environment domains `corridor`, `research`, and `debugging`.
 
 ### Difficulty Tiers
 
@@ -158,7 +160,7 @@ docker run -p 7860:7860 creditmaze:latest
 | `/reset`    | POST   | Start new episode                        |
 | `/step`     | POST   | Submit action                            |
 | `/state`    | GET    | Get episode state (labels after done)    |
-| `/tasks`    | GET    | List tasks + action schema               |
+| `/tasks`    | GET    | List evaluator-facing task catalog       |
 | `/grader`   | POST   | Get grader metrics for completed episode |
 | `/baseline` | POST   | Run baseline inference script            |
 | `/health`   | GET    | Health check                             |
@@ -167,6 +169,13 @@ docker run -p 7860:7860 creditmaze:latest
 
 For hackathon submission, use the root-level `inference.py` script. It uses the OpenAI client, reads `API_BASE_URL`, `MODEL_NAME`, and `HF_TOKEN` / `OPENAI_API_KEY`, emits strict `[START]`, `[STEP]`, and `[END]` lines, and can auto-start the local environment server when `ENV_URL` points at `localhost`.
 
+By default, `inference.py` runs the canonical evaluator tasks:
+- `task_easy`
+- `task_medium`
+- `task_hard`
+
+If `CREDITMAZE_TASK` is set, it runs only that one task.
+
 ```bash
 python inference.py
 ```
@@ -174,7 +183,7 @@ python inference.py
 To evaluate a specific task:
 
 ```bash
-CREDITMAZE_TASK=debugging_hard python inference.py
+CREDITMAZE_TASK=task_hard python inference.py
 ```
 
 ### Example Session
