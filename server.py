@@ -102,14 +102,9 @@ def tasks():
 
     return {
         "tasks": [
-            {"id": "task_easy",        "difficulty": "easy",   "max_steps": 15, "grader": grader_meta("task_easy", "This alias maps to the environment's canonical easy task.")},
-            {"id": "task_medium",      "difficulty": "medium", "max_steps": 15, "grader": grader_meta("task_medium", "This alias maps to the environment's canonical medium task.")},
-            {"id": "task_hard",        "difficulty": "hard",   "max_steps": 15, "grader": grader_meta("task_hard", "This alias maps to the environment's canonical hard task.")},
-            {"id": "corridor_easy",    "difficulty": "easy",   "max_steps": 15, "grader": grader_meta("corridor_easy", "The environment exposes the final normalized score through its internal grader.")},
-            {"id": "research_medium",  "difficulty": "medium", "max_steps": 15, "grader": grader_meta("research_medium", "The environment exposes the final normalized score through its internal grader.")},
-            {"id": "debugging_hard",   "difficulty": "hard",   "max_steps": 15, "grader": grader_meta("debugging_hard", "The environment exposes the final normalized score through its internal grader.")},
-            {"id": "resource_hard",    "difficulty": "hard",   "max_steps": 15, "grader": grader_meta("resource_hard", "The environment exposes the final normalized score through its internal grader.")},
-            {"id": "triage_multipivot","difficulty": "hard",   "max_steps": 15, "grader": grader_meta("triage_multipivot", "The environment exposes the final normalized score through its internal grader.")},
+            {"id": "task_easy",   "difficulty": "easy",   "max_steps": 15, "grader": grader_meta("task_easy", "This task maps to the environment's canonical easy benchmark episode.")},
+            {"id": "task_medium", "difficulty": "medium", "max_steps": 15, "grader": grader_meta("task_medium", "This task maps to the environment's canonical medium benchmark episode.")},
+            {"id": "task_hard",   "difficulty": "hard",   "max_steps": 15, "grader": grader_meta("task_hard", "This task maps to the environment's canonical hard benchmark episode.")},
         ],
         "action_schema": {
             "type": "object",

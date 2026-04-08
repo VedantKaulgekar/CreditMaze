@@ -37,36 +37,6 @@ tasks:
     grader:
       type: llm
       prompt_template: "Score the agent's performance on task_hard from 0.01 to 0.99 based on whether it completed the hard benchmark task correctly and assigned credit to the pivotal step."
-  - id: corridor_easy
-    difficulty: easy
-    max_steps: 15
-    grader:
-      type: llm
-      prompt_template: "Score the agent's performance on the corridor_easy task from 0.01 to 0.99 based on whether it reached the causally correct path and assigned credit to the pivotal step."
-  - id: research_medium
-    difficulty: medium
-    max_steps: 15
-    grader:
-      type: llm
-      prompt_template: "Score the agent's performance on the research_medium task from 0.01 to 0.99 based on whether it identified the qualified synthesis action and assigned credit to the pivotal step."
-  - id: debugging_hard
-    difficulty: hard
-    max_steps: 15
-    grader:
-      type: llm
-      prompt_template: "Score the agent's performance on the debugging_hard task from 0.01 to 0.99 based on whether it repaired the hidden dependency chain in the correct causal order."
-  - id: resource_hard
-    difficulty: hard
-    max_steps: 15
-    grader:
-      type: llm
-      prompt_template: "Score the agent's performance on the resource_hard task from 0.01 to 0.99 based on whether it committed the resource before the irreversible deadline and credited the pivotal step."
-  - id: triage_multipivot
-    difficulty: hard
-    max_steps: 15
-    grader:
-      type: llm
-      prompt_template: "Score the agent's performance on the triage_multipivot task from 0.01 to 0.99 based on whether it identified the jointly pivotal signals and credited both causally necessary steps."
 action_schema:
   type: object
   properties:
