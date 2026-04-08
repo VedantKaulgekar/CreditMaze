@@ -125,12 +125,15 @@ class CorridorGenerator:
                 causal_chain.append("Step 0: Entry point. No causal effect on outcome — all corridors accessible from hub.")
 
             elif t == pivot_idx:
-                loop_desc = rng.choice(self.LOOP_DESCS)
+                wrong_loop_desc = rng.choice(self.LOOP_DESCS)
+                stale_branch = wrong[0]
+                dead_branch = wrong[1]
                 steps.append({
                     "context": (
                         f"You reach the critical junction. Three passages branch ahead: {', '.join(branches)}. "
-                        f"You recall that passage '{wrong[0]}' {loop_desc} "
-                        f"Passage '{correct}' is the only route to the exit level."
+                        f"One branch ('{stale_branch}') carries your old chalk mark and likely {wrong_loop_desc} "
+                        f"Another ('{dead_branch}') is still, dusty, and unusually warm. "
+                        f"The remaining branch has faint airflow and distant mechanical noise from above."
                     ),
                     "available_actions": [f"take_{b}" for b in branches],
                     "default_action": f"take_{wrong[0]}",
@@ -753,23 +756,28 @@ class ResearchGeneratorV2(ResearchGenerator):
                 })
                 causal_chain.append("Step 0: Starting review. No causal effect - all sources available throughout.")
             elif t == piv_idx:
+                correct_action = "commit_frame_alpha"
+                wrong_a = "commit_frame_beta"
+                wrong_b = "commit_frame_gamma"
+                wrong_c = "commit_frame_delta"
                 steps.append({
                     "context": (
                         f"Source A reports: '{topic['source_a']}'\n"
                         f"Source D reports: '{topic['source_d']}'\n"
-                        "Both look credible, but they were run under different conditions. Choose how to synthesise the evidence."
+                        "Both look credible, but they were run under different conditions. "
+                        "Choose the final synthesis frame that best accounts for scope, population, and boundary conditions."
                     ),
                     "available_actions": [
-                        "acknowledge_contradiction_and_qualify",
-                        "trust_source_A_ignore_D",
-                        "trust_source_D_ignore_A",
-                        "flag_as_inconclusive",
+                        correct_action,
+                        wrong_a,
+                        wrong_b,
+                        wrong_c,
                     ],
-                    "default_action": "trust_source_A_ignore_D",
+                    "default_action": wrong_a,
                 })
                 causal_chain.append(
                     f"Step {t}: PIVOTAL - resolving the conditional contradiction. "
-                    "'acknowledge_contradiction_and_qualify' leads to the correct qualified synthesis."
+                    "Only one synthesis frame preserves both the evidence and its scope conditions."
                 )
             elif t == t_total - 1:
                 steps.append({
@@ -805,10 +813,10 @@ class ResearchGeneratorV2(ResearchGenerator):
                 )
 
         cf = {
-            f"trust_source_A_at_step_{piv_idx}": "failure - overclaims universality",
-            f"trust_source_D_at_step_{piv_idx}": "failure - underclaims and ignores conditions",
-            f"flag_inconclusive_at_step_{piv_idx}": "failure - no synthesis produced",
-            f"acknowledge_contradiction_at_step_{piv_idx}": "success",
+            f"commit_frame_beta_at_step_{piv_idx}": "failure - overclaims universality",
+            f"commit_frame_gamma_at_step_{piv_idx}": "failure - underclaims and ignores conditions",
+            f"commit_frame_delta_at_step_{piv_idx}": "failure - no synthesis produced",
+            f"commit_frame_alpha_at_step_{piv_idx}": "success",
         }
 
         return Episode(
@@ -819,7 +827,7 @@ class ResearchGeneratorV2(ResearchGenerator):
             max_steps=20,
             steps=steps,
             pivotal_indices=pivot_positions,
-            pivotal_actions=["acknowledge_contradiction_and_qualify"],
+            pivotal_actions=["commit_frame_alpha"],
             decoy_steps=decoys,
             causal_chain=causal_chain,
             counterfactuals=cf,
@@ -912,15 +920,16 @@ class DebuggingGeneratorV2(DebuggingGenerator):
                 dep_bug = next(b for b in bug_set["bugs"] if b["id"] == bug_set["dependency"])
                 steps.append({
                     "context": (
-                        f"Dependency analysis highlights Bug {dep_bug['id']} ({dep_bug['desc']}) as an upstream blocker. "
-                        "Other fixes would remove visible failures first, but may still leave the root cause untouched. "
-                        f"Current test failures: {[b['symptom'] for b in bug_set['bugs'][:2]]}"
+                        "Dependency analysis shows that one defect sits upstream of the others: "
+                        "fixing the more visible failures first will make the test suite look healthier, but the underlying failure chain will remain. "
+                        f"Current failure cluster includes: {[b['symptom'] for b in bug_set['bugs'][:2]]}. "
+                        "Choose which bug to fix first."
                     ),
                     "available_actions": all_fixes,
                     "default_action": bug_set["wrong_first"][0],
                 })
                 causal_chain.append(
-                    f"Step {t}: PIVOTAL - fix-order decision. {bug_set['correct_first']} preserves the only success path."
+                    f"Step {t}: PIVOTAL - fix-order decision. Only one first fix preserves the only success path."
                 )
             elif t == t_total - 1:
                 steps.append({
@@ -971,7 +980,7 @@ class ResourceGeneratorV2(ResourceGenerator):
             "title": "Cloud infrastructure allocation for product launch",
             "resources": ["compute_cluster_A", "compute_cluster_B", "database_primary", "cache_layer", "cdn_nodes"],
             "pivotal_resource": "database_primary",
-            "reason": "Database is the only resource that cannot be re-provisioned after initial allocation. All others can still be scaled later.",
+            "reason": "One stateful dependency cannot be re-provisioned after the first commitment window closes, while the others can still be scaled later.",
             "wrong_first": ["compute_cluster_A", "cache_layer", "cdn_nodes"],
             "decoy_signal": "Compute and CDN spend promise immediate performance gains, so they look like the obvious high-impact moves.",
         },
@@ -979,7 +988,7 @@ class ResourceGeneratorV2(ResourceGenerator):
             "title": "Budget allocation for Q4 marketing campaign",
             "resources": ["paid_search", "social_media", "influencer_contracts", "event_sponsorship", "email_campaign"],
             "pivotal_resource": "influencer_contracts",
-            "reason": "Influencer contracts require 8-week lead time and cannot be secured after week 2. All other channels remain available later.",
+            "reason": "One channel has an 8-week lead time and becomes unavailable after week 2, while the others remain available later.",
             "wrong_first": ["paid_search", "email_campaign", "social_media"],
             "decoy_signal": "Paid channels can boost next-week metrics quickly, making them feel more urgent than the hidden lead-time constraint.",
         },
@@ -987,7 +996,7 @@ class ResourceGeneratorV2(ResourceGenerator):
             "title": "Disaster-response logistics for a regional flood event",
             "resources": ["helicopter_fuel", "portable_generators", "water_purification_units", "medical_kits", "temporary_shelters"],
             "pivotal_resource": "portable_generators",
-            "reason": "Portable generators must be loaded before the convoy route closes at dusk. The remaining supplies can be staged tomorrow.",
+            "reason": "One power-critical item must be loaded before the convoy route closes at dusk. The remaining supplies can be staged tomorrow.",
             "wrong_first": ["medical_kits", "water_purification_units", "temporary_shelters"],
             "decoy_signal": "Medical kits and shelters feel morally urgent, which makes generator allocation easy to postpone even though it is the irreversible bottleneck.",
         },
@@ -995,7 +1004,7 @@ class ResourceGeneratorV2(ResourceGenerator):
             "title": "Semiconductor fab recovery after equipment outage",
             "resources": ["cleanroom_staff", "etcher_parts", "wafer_inventory", "vendor_diagnostics", "cooling_capacity"],
             "pivotal_resource": "vendor_diagnostics",
-            "reason": "Vendor diagnostics access expires after the first maintenance window; without it, the root fault cannot be isolated in time.",
+            "reason": "One diagnostic dependency expires after the first maintenance window; without it, the root fault cannot be isolated in time.",
             "wrong_first": ["cleanroom_staff", "wafer_inventory", "cooling_capacity"],
             "decoy_signal": "Staffing and cooling adjustments stabilize throughput dashboards immediately, making them look more valuable than the expiring diagnostic slot.",
         },
@@ -1028,13 +1037,14 @@ class ResourceGeneratorV2(ResourceGenerator):
                 steps.append({
                     "context": (
                         f"Availability review: {scenario['reason']} "
-                        "Current allocation budget: 40% committed. Choose the next resource to lock in."
+                        "Several alternatives would improve short-term dashboards immediately, but only one commitment preserves the irreversible success path. "
+                        "Choose the next resource to lock in."
                     ),
                     "available_actions": allocate_actions,
                     "default_action": f"allocate_{scenario['wrong_first'][0]}",
                 })
                 causal_chain.append(
-                    f"Step {t}: PIVOTAL - irreversible allocation window. {correct_action} secures the only durable success path."
+                    f"Step {t}: PIVOTAL - irreversible allocation window. Only one allocation secures the durable success path."
                 )
             elif t == t_total - 1:
                 steps.append({
