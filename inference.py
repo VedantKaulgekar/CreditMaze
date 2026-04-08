@@ -29,6 +29,9 @@ SEED = int(os.getenv("CREDITMAZE_SEED", "42"))
 TIMEOUT = float(os.getenv("CREDITMAZE_TIMEOUT", "30"))
 
 TASK_CONFIG = {
+    "task_easy": {"tier": "easy", "domain": "corridor"},
+    "task_medium": {"tier": "medium", "domain": "research"},
+    "task_hard": {"tier": "hard", "domain": "debugging"},
     "corridor_easy": {"tier": "easy", "domain": "corridor"},
     "research_medium": {"tier": "medium", "domain": "research"},
     "debugging_hard": {"tier": "hard", "domain": "debugging"},

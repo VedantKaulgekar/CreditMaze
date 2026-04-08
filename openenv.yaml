@@ -19,6 +19,24 @@ tags:
   - grpo
   - process-reward
 tasks:
+  - id: task_easy
+    difficulty: easy
+    max_steps: 15
+    grader:
+      type: llm
+      prompt_template: "Score the agent's performance on task_easy from 0.01 to 0.99 based on whether it completed the easy benchmark task correctly and assigned credit to the pivotal step."
+  - id: task_medium
+    difficulty: medium
+    max_steps: 15
+    grader:
+      type: llm
+      prompt_template: "Score the agent's performance on task_medium from 0.01 to 0.99 based on whether it completed the medium benchmark task correctly and assigned credit to the pivotal step."
+  - id: task_hard
+    difficulty: hard
+    max_steps: 15
+    grader:
+      type: llm
+      prompt_template: "Score the agent's performance on task_hard from 0.01 to 0.99 based on whether it completed the hard benchmark task correctly and assigned credit to the pivotal step."
   - id: corridor_easy
     difficulty: easy
     max_steps: 15
