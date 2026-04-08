@@ -19,3 +19,15 @@ tasks:
     grader:
       type: llm
       prompt_template: "Score the agent's performance on task_hard from 0.01 to 0.99 based on whether it completed the hard benchmark task correctly and assigned credit to the pivotal step."
+  - id: resource_hard
+    difficulty: hard
+    max_steps: 15
+    grader:
+      type: llm
+      prompt_template: "Score the agent's performance on resource_hard from 0.01 to 0.99 based on whether it completed the resource allocation task correctly and assigned credit to the pivotal step."
+  - id: triage_multipivot
+    difficulty: hard
+    max_steps: 15
+    grader:
+      type: llm
+      prompt_template: "Score the agent's performance on triage_multipivot from 0.01 to 0.99 based on whether it completed the multi-pivot triage task correctly and assigned credit to the causally important steps."

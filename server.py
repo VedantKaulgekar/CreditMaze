@@ -105,6 +105,8 @@ def tasks():
             {"id": "task_easy",   "difficulty": "easy",   "max_steps": 15, "grader": grader_meta("task_easy", "This task maps to the environment's canonical easy benchmark episode.")},
             {"id": "task_medium", "difficulty": "medium", "max_steps": 15, "grader": grader_meta("task_medium", "This task maps to the environment's canonical medium benchmark episode.")},
             {"id": "task_hard",   "difficulty": "hard",   "max_steps": 15, "grader": grader_meta("task_hard", "This task maps to the environment's canonical hard benchmark episode.")},
+            {"id": "resource_hard", "difficulty": "hard", "max_steps": 15, "grader": grader_meta("resource_hard", "This task maps to the environment's resource allocation benchmark episode.")},
+            {"id": "triage_multipivot", "difficulty": "hard", "max_steps": 15, "grader": grader_meta("triage_multipivot", "This task maps to the environment's multi-pivot triage benchmark episode.")},
         ],
     }
 
