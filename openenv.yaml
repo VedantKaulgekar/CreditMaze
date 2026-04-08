@@ -1,33 +1,52 @@
-env_id: creditmaze
-version: "1.0.0"
+environment:
+  name: CreditMaze
+  version: "1.0.0"
+  description: >
+    A rigorous RL and LLM-agent environment for measuring long-horizon causal credit assignment 
+    quality across real-world domains like research synthesis, debugging, and triage. Allows
+    researchers to measure whether an agent accomplished the task *and* identified the true 
+    pivotal scenario step over a sea of highly correlated decoys.
+  author: Meta Hackathon Submission
+  tags: [credit-assignment, real-world, debugging, research, agents]
+
 tasks:
   - id: task_easy
+    description: "Introductory causality trial: Navigate a baseline branching decision tree with one critical focal constraint."
     difficulty: easy
     max_steps: 15
     grader:
       type: llm
-      prompt_template: "Score the agent's performance on task_easy from 0.01 to 0.99 based on whether it completed the easy benchmark task correctly and assigned credit to the pivotal step."
+      prompt_template: >
+        Score the agent's final outcome from 0.01 to 0.99. Provide higher scores if the agent successfully completed the baseline objective and accurately explicitly identified the single pivotal step that led to success. Reward partial progress smoothly.
   - id: task_medium
+    description: "Research Synthesis: Resolve contradicting external research sources to produce a logically sound qualified synthesis."
     difficulty: medium
     max_steps: 15
     grader:
       type: llm
-      prompt_template: "Score the agent's performance on task_medium from 0.01 to 0.99 based on whether it completed the medium benchmark task correctly and assigned credit to the pivotal step."
+      prompt_template: >
+        Score the agent's performance from 0.01 to 0.99. Award maximum points only if the agent logically resolved the conflicting research data and accurately placed maximum credit on the crucial evidence fragment among the decoys. Penalize generic summarizations.
   - id: task_hard
+    description: "Complex Debugging: Fix interwoven code bugs in the precise dependency order; wrong order triggers an irresolvable cyclic error."
     difficulty: hard
     max_steps: 15
     grader:
       type: llm
-      prompt_template: "Score the agent's performance on task_hard from 0.01 to 0.99 based on whether it completed the hard benchmark task correctly and assigned credit to the pivotal step."
+      prompt_template: >
+        Evaluate the debugging trajectory. Score from 0.01 to 0.99. The agent must have resolved dependencies sequentially without triggering cyclic traps. Furthermore, heavily penalize the score if the agent fails to accurately credit the root-cause bug resolution step.
   - id: resource_hard
+    description: "Resource Allocation under pressure: Allocate a finite time-sensitive resource before the irreversible commitment window permanently closes."
     difficulty: hard
     max_steps: 15
     grader:
       type: llm
-      prompt_template: "Score the agent's performance on resource_hard from 0.01 to 0.99 based on whether it completed the resource allocation task correctly and assigned credit to the pivotal step."
+      prompt_template: >
+        Score the agent's performance from 0.01 to 0.99 on the resource allocation. Success requires perfect timing before the window closed. The agent must explicitly acknowledge the timing constraint as the pivotal factor. Any failure to identify the pivot restricts the score drastically.
   - id: triage_multipivot
+    description: "Multi-pivot Triage: Identify multiple jointly-causal signals required to resolve an incident amidst high-correlation distress noise."
     difficulty: hard
     max_steps: 15
     grader:
       type: llm
-      prompt_template: "Score the agent's performance on triage_multipivot from 0.01 to 0.99 based on whether it completed the multi-pivot triage task correctly and assigned credit to the causally important steps."
+      prompt_template: >
+        Evaluate the complex triage trajectory. Score from 0.01 to 0.99. This is deeply challenging: the agent must have found ALL jointly-causal signals from the noise. The score should scale linearly with the fraction of identified pivotal steps. Full score requires perfect multi-pivot identification.
