@@ -90,13 +90,25 @@ def state(episode_id: str):
 
 @app.get("/tasks")
 def tasks():
+    def grader_meta(task_id: str, summary: str) -> dict:
+        return {
+            "type": "llm",
+            "prompt_template": (
+                f"Score the agent's performance on {task_id} from 0.01 to 0.99 "
+                f"based on whether it completed the task correctly and assigned "
+                f"credit to the causally important step(s). {summary}"
+            ),
+            "endpoint": "/grader",
+            "score_range": [0.01, 0.99],
+        }
+
     return {
         "tasks": [
-            {"id": "corridor_easy",    "difficulty": "easy",   "domain": "corridor",  "tier": "easy",         "description": "Calibration task: a minimal branching-decision environment with one causally decisive junction.", "expected_psia": 0.65},
-            {"id": "research_medium",  "difficulty": "medium", "domain": "research",  "tier": "medium",       "description": "Resolve contradicting sources to produce correct qualified synthesis.",  "expected_psia": 0.42},
-            {"id": "debugging_hard",   "difficulty": "hard",   "domain": "debugging", "tier": "hard",         "description": "Fix bugs in correct dependency order.",                                   "expected_psia": 0.20},
-            {"id": "resource_hard",    "difficulty": "hard",   "domain": "resource",  "tier": "hard",         "description": "Allocate time-sensitive resources before an irreversible window closes.", "expected_psia": 0.24},
-            {"id": "triage_multipivot","difficulty": "hard",   "domain": "triage",    "tier": "multi-pivot",  "description": "Identify multiple jointly-causal signals from noise.",                   "expected_mpcs": 0.35},
+            {"id": "corridor_easy",    "difficulty": "easy",   "domain": "corridor",  "tier": "easy",         "description": "Calibration task: a minimal branching-decision environment with one causally decisive junction.", "expected_psia": 0.65, "grader": grader_meta("corridor_easy", "The internal environment grader exposes the final normalized score at /grader.")},
+            {"id": "research_medium",  "difficulty": "medium", "domain": "research",  "tier": "medium",       "description": "Resolve contradicting sources to produce correct qualified synthesis.",  "expected_psia": 0.42, "grader": grader_meta("research_medium", "The internal environment grader exposes the final normalized score at /grader.")},
+            {"id": "debugging_hard",   "difficulty": "hard",   "domain": "debugging", "tier": "hard",         "description": "Fix bugs in correct dependency order.",                                   "expected_psia": 0.20, "grader": grader_meta("debugging_hard", "The internal environment grader exposes the final normalized score at /grader.")},
+            {"id": "resource_hard",    "difficulty": "hard",   "domain": "resource",  "tier": "hard",         "description": "Allocate time-sensitive resources before an irreversible window closes.", "expected_psia": 0.24, "grader": grader_meta("resource_hard", "The internal environment grader exposes the final normalized score at /grader.")},
+            {"id": "triage_multipivot","difficulty": "hard",   "domain": "triage",    "tier": "multi-pivot",  "description": "Identify multiple jointly-causal signals from noise.",                   "expected_mpcs": 0.35, "grader": grader_meta("triage_multipivot", "The internal environment grader exposes the final normalized score at /grader.")},
         ],
         "action_schema": {
             "type": "object",
