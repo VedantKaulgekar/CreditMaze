@@ -50,6 +50,8 @@ CreditMaze fills that gap by providing:
 2. PSIA, CCE, and MPCS, which measure credit assignment quality directly rather than only final success.
 3. A shared, reproducible testbed where different 2025-2026 credit-assignment methods can be compared under the same conditions.
 
+The current benchmark content is intentionally varied across domains and scenarios rather than relying on a single fixed puzzle per tier. Research, debugging, resource-allocation, and triage tasks now include multiple scenario templates with stronger decoy evidence, so the pivotal step is less likely to announce itself through obviously filler context.
+
 ### The Three Novel Metrics
 
 | Metric   | Definition                                                                                    |
@@ -169,10 +171,12 @@ docker run -p 7860:7860 creditmaze:latest
 
 For hackathon submission, use the root-level `inference.py` script. It uses the OpenAI client, reads `API_BASE_URL`, `MODEL_NAME`, and `HF_TOKEN` / `OPENAI_API_KEY`, emits strict `[START]`, `[STEP]`, and `[END]` lines, and can auto-start the local environment server when `ENV_URL` points at `localhost`.
 
-By default, `inference.py` runs the canonical evaluator tasks:
+By default, `inference.py` runs every evaluator-facing task so the validator can observe multiple complete episodes:
 - `task_easy`
 - `task_medium`
 - `task_hard`
+- `resource_hard`
+- `triage_multipivot`
 
 If `CREDITMAZE_TASK` is set, it runs only that one task.
 
@@ -207,21 +211,22 @@ curl "http://localhost:7860/state?episode_id=abc12345"
 
 ## Baseline Scores
 
-The default reproducible command is `python baseline.py`, which now runs `easy`, `medium`, `hard`, and `multi-pivot` and prints a final JSON summary. With `OPENAI_API_KEY` set, it uses the OpenAI client against the configured model. Without a key, it falls back to a deterministic random policy for smoke testing.
+The default reproducible command is `python baseline.py`, which runs `easy`, `medium`, `hard`, and `multi-pivot` and prints a final JSON summary. With `OPENAI_API_KEY` or `HF_TOKEN` set, it uses the OpenAI client against the configured model. Without a key, it falls back to a deterministic random policy for a clean reproducible baseline.
 
-The table below reports the current reproducible random-fallback baseline. Evaluators can regenerate model-backed scores by setting `OPENAI_API_KEY` and rerunning `baseline.py` or `inference.py`.
+The table below reports the current reproducible random baseline from a no-key run. Evaluators can regenerate model-backed scores by setting `OPENAI_API_KEY` or `HF_TOKEN` and rerunning `baseline.py` or `inference.py`.
 
-Current reproducible local baseline, measured with deterministic random fallback (no API key), 5 episodes per tier:
+Current reproducible local baseline, measured with deterministic random fallback (no API key), `python baseline.py --n 1`:
 
 | Tier        | TSR   | PSIA  | CCE   | MPCS  |
 | ----------- | ----- | ----- | ----- | ----- |
-| Easy        | 0.613 | 0.000 | 0.316 | -     |
-| Medium      | 0.475 | 0.000 | 0.339 | -     |
-| Hard        | 0.389 | 0.000 | 0.346 | -     |
-| Multi-pivot | 0.280 | 0.049 | 0.338 | 0.327 |
+| Easy        | 0.333 | 0.333 | 0.332 | 0.500 |
+| Medium      | 0.300 | 0.400 | 0.320 | 0.500 |
+| Hard        | 0.273 | 0.364 | 0.327 | 0.500 |
+| Multi-pivot | 0.333 | 0.375 | 0.326 | 0.500 |
 
-_Run `python baseline.py` for the current default aggregate benchmark. Set `OPENAI_API_KEY` to use an LLM and regenerate model-backed scores before publishing them._
-_Without API key: deterministic random-policy fallback runs automatically._
+_Run `python baseline.py` for the current default aggregate benchmark._
+_Set `OPENAI_API_KEY` or `HF_TOKEN` to use an LLM and regenerate model-backed scores before publishing them._
+_Without an API key: deterministic random-policy fallback runs automatically._
 
 ---
 
