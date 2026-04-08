@@ -55,7 +55,8 @@ class GraderRequest(BaseModel):
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @app.post("/reset")
-def reset(req: ResetRequest):
+def reset(req: Optional[ResetRequest] = None):
+    req = req or ResetRequest()
     valid_tiers = ["easy", "medium", "hard", "multi-pivot"]
     if req.tier not in valid_tiers:
         raise HTTPException(400, f"tier must be one of {valid_tiers}")
