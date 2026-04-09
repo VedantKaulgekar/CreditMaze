@@ -133,7 +133,7 @@ Invalid actions also terminate the episode with `0.0` reward.
 
 ---
 
-The `/grader` endpoint separately returns a normalized `score` in `[0, 1]` plus `raw_reward` for analysis.
+The `/grader` endpoint separately returns a normalized `score` in the open interval `(0, 1)` plus `raw_reward` for analysis.
 
 ## Setup
 
@@ -201,7 +201,7 @@ curl -X POST http://localhost:7860/reset \
 # Step
 curl -X POST http://localhost:7860/step \
   -H "Content-Type: application/json" \
-  -d '{"episode_id": "abc12345", "action_id": "continue_forward", "credit_estimate": 0.3}'
+  -d '{"episode_id": "abc12345", "action_id": "enter_north", "credit_estimate": 0.3}'
 
 # State (after done=True - reveals causal labels)
 curl "http://localhost:7860/state?episode_id=abc12345"
@@ -211,11 +211,11 @@ curl "http://localhost:7860/state?episode_id=abc12345"
 
 ## Baseline Scores
 
-The default reproducible command is `python baseline.py`, which runs `easy`, `medium`, `hard`, and `multi-pivot` and prints a final JSON summary. With `OPENAI_API_KEY` or `HF_TOKEN` set, it uses the OpenAI client against the configured model. Without a key, it falls back to a deterministic random policy for a clean reproducible baseline.
+The default reproducible command is `python baseline.py`, which runs `easy`, `medium`, `hard`, and `multi-pivot` and prints a final JSON summary. With `OPENAI_API_KEY` or `HF_TOKEN` set, it uses the OpenAI client against the configured model. Without a key, it falls back to a random policy baseline for smoke testing.
 
-The table below reports the current reproducible random baseline from a no-key run. Evaluators can regenerate model-backed scores by setting `OPENAI_API_KEY` or `HF_TOKEN` and rerunning `baseline.py` or `inference.py`.
+The table below reports a current random baseline from a no-key run. Evaluators can regenerate model-backed scores by setting `OPENAI_API_KEY` or `HF_TOKEN` and rerunning `baseline.py` or `inference.py`.
 
-Current reproducible local baseline, measured with deterministic random fallback (no API key), `python baseline.py --n 1`:
+Current local baseline, measured with random fallback (no API key), `python baseline.py --n 1`:
 
 | Tier        | TSR   | PSIA  | CCE   | MPCS  |
 | ----------- | ----- | ----- | ----- | ----- |
@@ -226,7 +226,7 @@ Current reproducible local baseline, measured with deterministic random fallback
 
 _Run `python baseline.py` for the current default aggregate benchmark._
 _Set `OPENAI_API_KEY` or `HF_TOKEN` to use an LLM and regenerate model-backed scores before publishing them._
-_Without an API key: deterministic random-policy fallback runs automatically._
+_Without an API key: random-policy fallback runs automatically._
 
 ---
 
