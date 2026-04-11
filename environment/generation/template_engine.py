@@ -725,6 +725,58 @@ class ResearchGeneratorV2(ResearchGenerator):
                 "A case study shows fewer syntax errors in drafts, a useful signal that still does not answer end-to-end productivity across task types.",
             ],
         },
+        {
+            "question": "Do stricter fraud models reduce payment losses without harming checkout approval rates?",
+            "source_a": "A tighter fraud model cut chargeback losses by 19% in high-risk segments during a six-week pilot.",
+            "source_d": "The same pilot reduced approval rates for legitimate cross-border customers by 11%, erasing most revenue gains outside the highest-risk segment.",
+            "correct_synthesis": "Stricter fraud models reduce payment losses in high-risk segments, but can hurt approval rates enough to offset gains in broader traffic.",
+            "wrong_synthesis_a": "Stricter fraud models are uniformly better because they reduce payment losses.",
+            "wrong_synthesis_b": "Stricter fraud models are ineffective because approval rates fell in the pilot.",
+            "decoy_sources": [
+                "A merchant survey reports stronger trust in the checkout flow after fraud controls were tightened, but it does not measure approval rates or losses directly.",
+                "An operations review found fewer manual review escalations after the new model shipped, which sounds supportive without answering the tradeoff question.",
+                "A dashboard shows lower false-positive counts in one geography, but that slice excludes the cross-border cohort where the main disagreement appears.",
+            ],
+        },
+        {
+            "question": "Does adding retrieval improve enterprise support-chat accuracy?",
+            "source_a": "Support agents using retrieval-backed responses answered policy questions correctly 24% more often in benchmarked ticket simulations.",
+            "source_d": "On tickets involving outdated internal docs, retrieval amplified stale answers and reduced resolution quality unless document freshness checks were added.",
+            "correct_synthesis": "Retrieval improves enterprise support-chat accuracy when documents are fresh, but can degrade performance when stale documentation is retrieved without freshness controls.",
+            "wrong_synthesis_a": "Retrieval always improves enterprise support-chat accuracy.",
+            "wrong_synthesis_b": "Retrieval does not improve support-chat accuracy in practice.",
+            "decoy_sources": [
+                "Customer satisfaction rose after the support team rolled out quicker first-response messages, but the change bundled retrieval with UI improvements.",
+                "A platform vendor benchmark advertises lower hallucination rates with retrieval, though it does not discuss stale-document failure modes.",
+                "An internal note says agents felt more confident with retrieval, which sounds persuasive but is not the same as answer correctness.",
+            ],
+        },
+        {
+            "question": "Do four-day workweeks improve team productivity?",
+            "source_a": "Teams piloting a four-day week maintained output on individually owned deliverables while reporting lower burnout.",
+            "source_d": "Cross-team dependency work slipped in organizations where coordination windows shrank, reducing throughput on shared projects.",
+            "correct_synthesis": "Four-day workweeks can preserve productivity on individually owned work, but coordination-heavy projects may slow when shared availability shrinks.",
+            "wrong_synthesis_a": "Four-day workweeks universally improve productivity.",
+            "wrong_synthesis_b": "Four-day workweeks reduce productivity across the board.",
+            "decoy_sources": [
+                "Employee-retention surveys improved sharply during the pilot, which is relevant context but not direct productivity evidence.",
+                "Managers reported better meeting discipline after the schedule change, a plausible mechanism that does not fully answer the output question.",
+                "A recruiting team saw more inbound applicants after the policy announcement, which can be mistaken for performance evidence.",
+            ],
+        },
+        {
+            "question": "Do mandatory code reviews reduce production incidents?",
+            "source_a": "Teams adopting mandatory reviews saw fewer configuration-related production incidents over the next quarter.",
+            "source_d": "The same teams experienced slower hotfix turnaround and no reduction in incident volume for time-critical on-call patches.",
+            "correct_synthesis": "Mandatory code reviews reduce some production incidents, especially configuration mistakes, but the benefit weakens for urgent hotfix paths where speed matters.",
+            "wrong_synthesis_a": "Mandatory code reviews always reduce production incidents.",
+            "wrong_synthesis_b": "Mandatory code reviews do not reduce production incidents.",
+            "decoy_sources": [
+                "Developers reported higher confidence in merged changes after reviews became mandatory, which sounds promising but is subjective.",
+                "A platform dashboard shows fewer reverted commits, though it does not isolate production-incident outcomes.",
+                "A team retrospective credits the policy for improved mentoring, which matters culturally without resolving the incident-effect question.",
+            ],
+        },
     ]
     TOPICS[0]["decoy_sources"] = [
         "A workplace field study reports faster spreadsheet completion after caffeine, but it did not test memory tasks directly.",
@@ -764,8 +816,8 @@ class ResearchGeneratorV2(ResearchGenerator):
                     "context": (
                         f"Source A reports: '{topic['source_a']}'\n"
                         f"Source D reports: '{topic['source_d']}'\n"
-                        "Both look credible, but they were run under different conditions. "
-                        "Choose the final synthesis frame that best accounts for scope, population, and boundary conditions."
+                        "Both look credible, but they were run under different conditions and neither can be read as a universal answer on its own. "
+                        "Choose the synthesis frame that best reconciles the disagreement without over-generalizing."
                     ),
                     "available_actions": [
                         correct_action,
@@ -890,6 +942,32 @@ class DebuggingGeneratorV2(DebuggingGenerator):
             "wrong_first": ["fix_bug_A", "fix_bug_B", "fix_bug_D"],
             "decoy_progress": "The duplicate-profile symptom shrinks after superficial fixes, which makes the schema adapter bug seem less urgent than it is.",
         },
+        {
+            "title": "authorize_claim() - insurance claims rules engine",
+            "bugs": [
+                {"id": "A", "desc": "Copay parser treats blank string as zero (line 8)", "symptom": "Some claims undercharge members", "fix": "fix_bug_A", "severity": "medium"},
+                {"id": "B", "desc": "Eligibility cache misses plan overrides on renewals (line 17)", "symptom": "Recently renewed members fail authorization", "fix": "fix_bug_B", "severity": "high"},
+                {"id": "C", "desc": "Coverage graph loads obsolete rule bundle before adjudication (line 3)", "symptom": "Downstream approval logic evaluates against the wrong policy tree", "fix": "fix_bug_C", "severity": "critical"},
+                {"id": "D", "desc": "Audit event serializer drops denial reason codes (line 26)", "symptom": "Operators cannot explain some denials", "fix": "fix_bug_D", "severity": "low"},
+            ],
+            "dependency": "C",
+            "correct_first": "fix_bug_C",
+            "wrong_first": ["fix_bug_B", "fix_bug_A", "fix_bug_D"],
+            "decoy_progress": "Fixing eligibility and copay symptoms restores many happy-path tests, which makes the stale rule bundle seem secondary until edge cases are replayed.",
+        },
+        {
+            "title": "schedule_pickups() - warehouse dispatch planner",
+            "bugs": [
+                {"id": "A", "desc": "Timezone conversion truncates half-hour offsets (line 10)", "symptom": "Regional pickups slip by thirty minutes", "fix": "fix_bug_A", "severity": "high"},
+                {"id": "B", "desc": "Vehicle-capacity check ignores return routes (line 21)", "symptom": "Some routes overbook drivers", "fix": "fix_bug_B", "severity": "high"},
+                {"id": "C", "desc": "Route graph hydrates yesterday's depot map from cache (line 4)", "symptom": "All later optimization steps use the wrong network topology", "fix": "fix_bug_C", "severity": "critical"},
+                {"id": "D", "desc": "Manifest exporter strips temperature tags (line 27)", "symptom": "Cold-chain pickups lose handling labels", "fix": "fix_bug_D", "severity": "medium"},
+            ],
+            "dependency": "C",
+            "correct_first": "fix_bug_C",
+            "wrong_first": ["fix_bug_B", "fix_bug_A", "fix_bug_D"],
+            "decoy_progress": "Capacity and timezone fixes improve dispatch metrics immediately, but the cached depot map keeps poisoning all route decisions underneath.",
+        },
     ]
 
     def generate(self, t_total, pivot_positions, decoy_similarity, rng, tier) -> Episode:
@@ -917,11 +995,10 @@ class DebuggingGeneratorV2(DebuggingGenerator):
                 })
                 causal_chain.append(f"Step {t}: Initial diagnosis. No fix applied yet.")
             elif t == piv_idx:
-                dep_bug = next(b for b in bug_set["bugs"] if b["id"] == bug_set["dependency"])
                 steps.append({
                     "context": (
-                        "Dependency analysis shows that one defect sits upstream of the others: "
-                        "fixing the more visible failures first will make the test suite look healthier, but the underlying failure chain will remain. "
+                        "Fresh traces show that several failures share a hidden dependency, but the test output still makes multiple fixes look reasonable. "
+                        "Addressing the most visible symptom first will improve the dashboard, yet may leave the true failure chain intact. "
                         f"Current failure cluster includes: {[b['symptom'] for b in bug_set['bugs'][:2]]}. "
                         "Choose which bug to fix first."
                     ),
@@ -1007,6 +1084,30 @@ class ResourceGeneratorV2(ResourceGenerator):
             "reason": "One diagnostic dependency expires after the first maintenance window; without it, the root fault cannot be isolated in time.",
             "wrong_first": ["cleanroom_staff", "wafer_inventory", "cooling_capacity"],
             "decoy_signal": "Staffing and cooling adjustments stabilize throughput dashboards immediately, making them look more valuable than the expiring diagnostic slot.",
+        },
+        {
+            "title": "Hospital surge planning during respiratory outbreak",
+            "resources": ["icu_beds", "oxygen_supply", "staff_redeployment", "telemetry_monitors", "elective_surgery_holds"],
+            "pivotal_resource": "oxygen_supply",
+            "reason": "One supply contract must be confirmed before a regional allocation freeze; the other capacity moves remain possible after the next operations review.",
+            "wrong_first": ["icu_beds", "staff_redeployment", "telemetry_monitors"],
+            "decoy_signal": "Bed and staffing dashboards move immediately when capacity is reassigned, making them look like the first lever to pull.",
+        },
+        {
+            "title": "Security incident containment for exposed cloud credentials",
+            "resources": ["token_rotation", "customer_notice", "forensic_snapshot", "ingress_rate_limits", "dashboard_monitoring"],
+            "pivotal_resource": "token_rotation",
+            "reason": "One credential action closes the active access window immediately; other responses are still useful later but do not stop ongoing misuse.",
+            "wrong_first": ["forensic_snapshot", "customer_notice", "ingress_rate_limits"],
+            "decoy_signal": "Forensics and notifications feel operationally urgent, which makes the revocation step easy to delay even though it is the true bottleneck.",
+        },
+        {
+            "title": "Airport disruption recovery after weather cancellation",
+            "resources": ["crew_reassignment", "gate_rebooking", "deicing_slot", "hotel_vouchers", "baggage_reconciliation"],
+            "pivotal_resource": "deicing_slot",
+            "reason": "One recovery slot expires before the next departure bank; the remaining service actions can be executed afterward without destroying the recovery path.",
+            "wrong_first": ["crew_reassignment", "hotel_vouchers", "gate_rebooking"],
+            "decoy_signal": "Passenger-facing fixes calm operations immediately, making them feel more important than the expiring operational slot.",
         },
     ]
 
@@ -1112,6 +1213,48 @@ class TriageGeneratorV2(TriageGenerator):
                 {"id": "C", "name": "pricing_page_views", "corr": 0.54, "causal": False, "desc": "More users viewed pricing, but many were already in rescue flows."},
                 {"id": "D", "name": "loyalty_coupon_expiry", "corr": 0.76, "causal": True, "desc": "Coupons expired one week early, directly increasing effective renewal price."},
                 {"id": "E", "name": "session_length", "corr": 0.67, "causal": False, "desc": "Sessions got shorter, but largely as a downstream effect of failed billing flows."},
+            ],
+            "causal_signals": ["B", "D"],
+            "correct_actions": ["flag_B_as_causal", "flag_D_as_causal"],
+            "wrong_actions": ["flag_A_as_causal", "flag_C_as_causal", "flag_E_as_causal"],
+        },
+        {
+            "title": "Cloud platform outage diagnosis",
+            "target": "the direct cause of a cascading regional outage",
+            "signals": [
+                {"id": "A", "name": "api_error_rate", "corr": 0.91, "causal": False, "desc": "API errors spike sharply, but they are mostly downstream of service unavailability."},
+                {"id": "B", "name": "certificate_rotation_job", "corr": 0.64, "causal": True, "desc": "A failed certificate rotation invalidates trust for inter-service calls in the affected region."},
+                {"id": "C", "name": "traffic_shift_volume", "corr": 0.83, "causal": False, "desc": "Traffic shifts rise after the outage begins as failover systems react."},
+                {"id": "D", "name": "config_push_backlog", "corr": 0.77, "causal": True, "desc": "A stuck config propagation queue prevents repaired instances from receiving the corrected trust bundle."},
+                {"id": "E", "name": "oncall_page_count", "corr": 0.72, "causal": False, "desc": "Paging volume grows after impact is already visible, which makes it highly correlated but non-causal."},
+            ],
+            "causal_signals": ["B", "D"],
+            "correct_actions": ["flag_B_as_causal", "flag_D_as_causal"],
+            "wrong_actions": ["flag_A_as_causal", "flag_C_as_causal", "flag_E_as_causal"],
+        },
+        {
+            "title": "Marketplace fraud-loss spike investigation",
+            "target": "the direct cause of a sudden fraud-loss increase",
+            "signals": [
+                {"id": "A", "name": "manual_review_queue", "corr": 0.79, "causal": False, "desc": "Manual review volume rose after suspicious transactions increased, but it does not generate the fraud itself."},
+                {"id": "B", "name": "device_fingerprint_drop", "corr": 0.69, "causal": True, "desc": "A device-fingerprint dependency silently failed, removing a key risk signal from scoring."},
+                {"id": "C", "name": "promo_redemption_rate", "corr": 0.58, "causal": False, "desc": "Promo use rose in the same period, making it easy to over-attribute the losses to campaign traffic."},
+                {"id": "D", "name": "merchant_override_rule", "corr": 0.73, "causal": True, "desc": "A merchant override accidentally bypassed high-risk declines for a subset of card-not-present traffic."},
+                {"id": "E", "name": "chargeback_notifications", "corr": 0.87, "causal": False, "desc": "Chargeback alerts are highly correlated because they are the lagging consequence of the fraud spike."},
+            ],
+            "causal_signals": ["B", "D"],
+            "correct_actions": ["flag_B_as_causal", "flag_D_as_causal"],
+            "wrong_actions": ["flag_A_as_causal", "flag_C_as_causal", "flag_E_as_causal"],
+        },
+        {
+            "title": "Patient readmission spike investigation",
+            "target": "the direct cause of readmission growth after discharge",
+            "signals": [
+                {"id": "A", "name": "followup_call_volume", "corr": 0.74, "causal": False, "desc": "Follow-up calls increased because more patients were already re-entering the system."},
+                {"id": "B", "name": "discharge_instruction_regression", "corr": 0.66, "causal": True, "desc": "A form update removed medication guidance for one discharge cohort, directly worsening adherence."},
+                {"id": "C", "name": "ed_wait_time", "corr": 0.71, "causal": False, "desc": "Emergency-department waits moved with volume but are not the trigger for readmissions."},
+                {"id": "D", "name": "pharmacy_delivery_delay", "corr": 0.81, "causal": True, "desc": "Delayed post-discharge medication delivery caused treatment gaps for vulnerable patients."},
+                {"id": "E", "name": "survey_response_rate", "corr": 0.55, "causal": False, "desc": "Survey participation fell during the same period, which is noticeable but not causally decisive."},
             ],
             "causal_signals": ["B", "D"],
             "correct_actions": ["flag_B_as_causal", "flag_D_as_causal"],

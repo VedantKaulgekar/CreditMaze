@@ -10,7 +10,7 @@ pinned: false
 
 # CreditMaze
 
-**An OpenEnv-compatible RL benchmark purpose-built to isolate and measure credit assignment quality in long-horizon LLM agent tasks.**
+**CreditMaze is an OpenEnv-compatible benchmark for evaluating whether long-horizon AI agents can identify the evidence or decision that actually caused success or failure.**
 
 [![OpenEnv](https://img.shields.io/badge/OpenEnv-compatible-blue)](https://openenv.ai)
 
@@ -18,21 +18,28 @@ pinned: false
 
 ## What Is CreditMaze?
 
-Every episode contains exactly one (or more, in Tier 4) decision that **causally determines** the final outcome. All other decisions are carefully crafted **decoys** - actions that look important and generate small positive reward, but are causally irrelevant.
+CreditMaze is a long-horizon agent benchmark where each episode contains one decisive step, or multiple jointly decisive steps in the multi-pivot tier, hidden among realistic decoys.
 
-This lets CreditMaze **directly measure credit assignment quality**: did the agent's training algorithm correctly identify which step actually mattered?
+It measures two things at once:
+
+1. Did the agent solve the task?
+2. Did it give the most credit to the step that actually mattered?
 
 ## Why This Matters
 
-In long-horizon agent tasks, success often depends on one critical earlier decision, while many other steps look important but are actually distractions. Standard RL benchmarks usually measure only whether the agent eventually succeeds, not whether it assigned credit to the step that truly caused the outcome.
+In real multi-step AI workflows, many actions look useful even though only a small number actually determine the outcome. Standard benchmarks usually check only whether the agent finished the task, not whether it understood which earlier decision or evidence fragment caused success or failure.
 
-CreditMaze is designed to evaluate that missing ability. Each episode contains hidden pivotal steps, realistic decoy actions, and ground-truth causal labels, so researchers can measure not just task success, but whether an agent correctly identified the actions that actually mattered.
+CreditMaze is designed to evaluate that missing ability. Each episode contains hidden pivotal steps, realistic decoy actions, and ground-truth causal labels, so evaluators can measure not just task success, but whether the agent correctly identified the actions that actually mattered.
+
+### A Simple Example
+
+Imagine an agent reading many sources before writing a research answer. A normal benchmark checks whether the final answer is right. CreditMaze also checks whether the agent identified the one key source or decision that truly changed the result instead of giving equal importance to every step.
 
 ### Why Now
 
 Recent agentic RL work, including ICLR 2026 discussion around long-horizon LLM training, has highlighted credit assignment as a central bottleneck: rewards are sparse and delayed, but trajectories contain many intermediate decisions and long reasoning traces. In that setting, it becomes hard to tell which earlier step truly caused the final result.
 
-This problem is especially important for methods such as GRPO and related value-free approaches, where a final trajectory-level reward can wash out the contribution of the specific step that actually mattered.
+This matters beyond RL too. In debugging, incident response, triage, or research synthesis, we want agents that can not only reach an answer, but also explain which step or evidence fragment actually drove it.
 
 ### Why LLM Agents Make It Harder
 
@@ -42,23 +49,24 @@ As a result, two trajectories may end with the same outcome while hiding very di
 
 ### The Gap CreditMaze Fills
 
-Recent credit-assignment methods are often evaluated on different tasks and domains, which makes side-by-side comparison difficult. Existing agent benchmarks like WebShop, ALFWorld, SWE-bench, and TheAgentCompany mainly measure whether the final goal was achieved, not whether the agent identified the causally decisive intermediate step.
+Existing agent benchmarks like WebShop, ALFWorld, SWE-bench, and TheAgentCompany mainly measure whether the final goal was achieved, not whether the agent identified the causally decisive intermediate step.
 
 CreditMaze fills that gap by providing:
 
-1. Ground-truth causal credit labels for every episode, verified by counterfactual simulation.
-2. PSIA, CCE, and MPCS, which measure credit assignment quality directly rather than only final success.
-3. A shared, reproducible testbed where different 2025-2026 credit-assignment methods can be compared under the same conditions.
+1. Ground-truth causal labels for each episode, verified by counterfactual simulation.
+2. PSIA, CCE, and MPCS, which measure attribution quality directly rather than only final success.
+3. A shared, reproducible testbed where task success and causal attribution quality can be compared under the same conditions.
 
-The current benchmark content is intentionally varied across domains and scenarios rather than relying on a single fixed puzzle per tier. Research, debugging, resource-allocation, and triage tasks now include multiple scenario templates with stronger decoy evidence, so the pivotal step is less likely to announce itself through obviously filler context.
+The current benchmark content is intentionally varied across practical workflows rather than relying on a single fixed puzzle per tier. Research, debugging, resource-allocation, and triage tasks now include multiple scenario templates with stronger decoy evidence, so the pivotal step is less likely to announce itself through obviously filler context.
 
-### The Three Novel Metrics
+### Attribution Metrics
 
 | Metric   | Definition                                                                                    |
 | -------- | --------------------------------------------------------------------------------------------- |
 | **PSIA** | Pivotal Step Identification Accuracy - did the agent assign highest credit to the true pivot? |
 | **CCE**  | Credit Calibration Error - MSE between agent credit estimates and ground-truth labels         |
 | **MPCS** | Multi-Pivot Coordination Score - fraction of jointly-pivotal steps found (Tier 4)             |
+| **TSR**  | Task Success Rate - did the underlying task succeed?                                           |
 
 ---
 
@@ -100,13 +108,15 @@ For submission and evaluation, CreditMaze exposes three canonical benchmark task
 
 | Task ID             | Tier        | Domain    | Description                                                                                     |
 | ------------------- | ----------- | --------- | ----------------------------------------------------------------------------------------------- |
-| `task_easy`         | easy        | corridor  | Calibration task: a minimal branching-decision environment with one causally decisive junction. |
-| `task_medium`       | medium      | research  | Resolve contradicting research sources to produce correct qualified synthesis.                  |
-| `task_hard`         | hard        | debugging | Fix bugs in the correct dependency order - wrong order creates irresolvable cycle.              |
-| `resource_hard`     | hard        | resource  | Allocate a time-sensitive resource before an irreversible commitment window closes.             |
-| `triage_multipivot` | multi-pivot | triage    | Identify multiple jointly-causal signals from high-correlation noise.                           |
+| `task_easy`         | easy        | corridor  | Calibration task: identify the decisive route in a branching environment with plausible distractions. |
+| `task_medium`       | medium      | research  | Reconcile contradictory evidence without over-generalizing from persuasive but incomplete sources. |
+| `task_hard`         | hard        | debugging | Fix the root-cause bug in the correct dependency order while visible symptom fixes tempt the agent off path. |
+| `resource_hard`     | hard        | resource  | Make the one irreversible resource commitment that preserves success before the window closes. |
+| `triage_multipivot` | multi-pivot | triage    | Identify multiple jointly-causal signals in a noisy investigation full of strong correlates. |
 
 Internally, the canonical tasks map to the environment domains `corridor`, `research`, and `debugging`.
+
+The underlying scenario templates now cover more practical settings such as billing systems, CRM sync, fraud analysis, support retrieval, hospital surge planning, cloud outages, and subscription churn investigations.
 
 ### Difficulty Tiers
 
@@ -121,19 +131,21 @@ Internally, the canonical tasks map to the environment domains `corridor`, `rese
 
 | Situation                             | Reward                       |
 | ------------------------------------- | ---------------------------- |
-| Decoy step (any valid action)         | 0.04                         |
+| Early decoy step                      | 0.04                         |
+| Mid-episode decoy step                | 0.06 to 0.08                 |
+| Late decoy step                       | up to 0.10                   |
 | Correct pivot action (not final)      | 0.12                         |
 | Incorrect pivot action                | 0.0 (episode fails)          |
-| Episode success (final pivot correct) | 0.5 + 0.5 × efficiency_bonus |
+| Episode success (final pivot correct) | 0.5 + 0.5 x efficiency_bonus |
 | Episode failure                       | 0.0                          |
 
 Invalid actions also terminate the episode with `0.0` reward.
 
-**Design intent:** Step rewards are deliberately **non-revealing** - the pivotal step's reward (0.12) is indistinguishable from some decoy steps. This is what makes credit assignment hard.
+**Design intent:** Step rewards are deliberately **non-revealing**. Some decoys become locally attractive later in the episode, so a reward-greedy policy can still focus on the wrong step.
 
 ---
 
-The `/grader` endpoint separately returns a normalized `score` in the open interval `(0, 1)` plus `raw_reward` for analysis.
+The `/grader` endpoint separately returns a normalized `score` in the open interval `0.01` to `0.99` plus `raw_reward`, session metrics, and attribution diagnostics for analysis.
 
 ## Setup
 
@@ -159,17 +171,34 @@ docker run -p 7860:7860 creditmaze:latest
 
 | Endpoint    | Method | Description                              |
 | ----------- | ------ | ---------------------------------------- |
-| `/reset`    | POST   | Start new episode                        |
-| `/step`     | POST   | Submit action                            |
-| `/state`    | GET    | Get episode state (labels after done)    |
+| `/reset`    | POST   | Start a new episode                      |
+| `/step`     | POST   | Submit one action                        |
+| `/state`    | GET    | Inspect episode state; causal labels appear only after completion |
 | `/tasks`    | GET    | List evaluator-facing task catalog       |
-| `/grader`   | POST   | Get grader metrics for completed episode |
-| `/baseline` | POST   | Run baseline inference script            |
+| `/grader`   | POST   | Return final score, session metrics, and attribution diagnostics for a completed episode |
+| `/baseline` | POST   | Run the aggregate baseline script and return its JSON summary |
 | `/health`   | GET    | Health check                             |
+
+### `/grader` Output
+
+The grader returns:
+
+- `score` in the open interval `0.01` to `0.99`
+- `raw_reward`
+- session-level `PSIA`, `CCE`, `TSR`, and `MPCS`
+- `causal_faithfulness`
+- `pivotal_step_indices`
+- attribution diagnostics such as:
+  - `top_attributed_step`
+  - `top_attributed_action`
+  - `pivotal_step_rank`
+  - `false_positive_steps`
+  - `attribution_gap`
+  - `success_with_wrong_attribution`
 
 ## Submission Inference
 
-For hackathon submission, use the root-level `inference.py` script. It uses the OpenAI client, reads `API_BASE_URL`, `MODEL_NAME`, and `HF_TOKEN` / `OPENAI_API_KEY`, emits strict `[START]`, `[STEP]`, and `[END]` lines, and can auto-start the local environment server when `ENV_URL` points at `localhost`.
+For evaluator-compatible runs, use the root-level `inference.py` script. It uses the OpenAI client, reads `API_BASE_URL`, `MODEL_NAME`, and `HF_TOKEN` / `OPENAI_API_KEY` / `API_KEY`, emits strict `[START]`, `[STEP]`, and `[END]` lines, and can auto-start the local environment server when `ENV_URL` points at `localhost`.
 
 By default, `inference.py` runs every evaluator-facing task so the validator can observe multiple complete episodes:
 - `task_easy`
@@ -201,7 +230,7 @@ curl -X POST http://localhost:7860/reset \
 # Step
 curl -X POST http://localhost:7860/step \
   -H "Content-Type: application/json" \
-  -d '{"episode_id": "abc12345", "action_id": "enter_north", "credit_estimate": 0.3}'
+  -d '{"episode_id": "abc12345", "action_id": "<choose one from available_actions>", "credit_estimate": 0.3}'
 
 # State (after done=True - reveals causal labels)
 curl "http://localhost:7860/state?episode_id=abc12345"
@@ -209,24 +238,23 @@ curl "http://localhost:7860/state?episode_id=abc12345"
 
 ---
 
-## Baseline Scores
+## Baselines
 
-The default reproducible command is `python baseline.py`, which runs `easy`, `medium`, `hard`, and `multi-pivot` and prints a final JSON summary. With `OPENAI_API_KEY` or `HF_TOKEN` set, it uses the OpenAI client against the configured model. Without a key, it falls back to a random policy baseline for smoke testing.
+The default aggregate runner is `python baseline.py`. It runs the benchmark tiers, prints a human-readable summary, and emits one final JSON line that is also used by the `/baseline` endpoint.
 
-The table below reports a current random baseline from a no-key run. Evaluators can regenerate model-backed scores by setting `OPENAI_API_KEY` or `HF_TOKEN` and rerunning `baseline.py` or `inference.py`.
+Behavior:
 
-Current local baseline, measured with random fallback (no API key), `python baseline.py --n 1`:
+- with `OPENAI_API_KEY`, `HF_TOKEN`, or `API_KEY` set, it uses the configured model
+- without a key, it automatically falls back to a random valid-action baseline
 
-| Tier        | TSR   | PSIA  | CCE   | MPCS  |
-| ----------- | ----- | ----- | ----- | ----- |
-| Easy        | 0.333 | 0.333 | 0.332 | 0.500 |
-| Medium      | 0.300 | 0.400 | 0.320 | 0.500 |
-| Hard        | 0.273 | 0.364 | 0.327 | 0.500 |
-| Multi-pivot | 0.333 | 0.375 | 0.326 | 0.500 |
+Recommended commands:
 
-_Run `python baseline.py` for the current default aggregate benchmark._
-_Set `OPENAI_API_KEY` or `HF_TOKEN` to use an LLM and regenerate model-backed scores before publishing them._
-_Without an API key: random-policy fallback runs automatically._
+```bash
+python baseline.py
+python baseline.py --n 1
+```
+
+For honest reporting, regenerate model-backed numbers before publishing them and avoid mixing LLM-backed results with fallback runs after quota or rate-limit failures.
 
 ---
 
@@ -267,22 +295,42 @@ credits = extractor.extract(trajectory, episode_id)
 
 ---
 
+## Why Evaluators Might Use It
+
+CreditMaze is useful when you want to know not only whether an agent finished a long task, but whether it understood **what actually mattered** inside that task.
+
+Examples:
+
+- a debugging agent that eventually passes tests but over-credits symptom fixes instead of the root cause
+- an incident-response agent that resolves the issue but credits the wrong signal
+- a research agent that gives the right answer but cannot identify which evidence changed the conclusion
+
+That makes the benchmark relevant for:
+
+- RL research
+- LLM agent evaluation
+- workflow auditability
+- root-cause analysis
+- decision-trace debugging
+
+---
+
 ## Research Contribution
 
 CreditMaze introduces:
 
-1. **PSIA and CCE** - first metrics that directly measure credit assignment quality (not just task success)
-2. **Ground-truth causal labels** - verified via counterfactual simulation for every episode
-3. **Multi-pivot Tier 4** - first benchmark for jointly-causal credit assignment (MPCS metric)
-4. **Algorithm-agnostic credit extraction hook** - plug in GRPO, PPO, iStar, HCAPO, or any future method
+1. **Custom attribution metrics** such as PSIA, CCE, and MPCS for evaluating whether an agent credited the right step, not just whether it succeeded
+2. **Ground-truth causal labels** verified by counterfactual simulation for every episode
+3. **Jointly-causal multi-pivot tasks** where success depends on identifying more than one decisive step
+4. **Algorithm-agnostic credit extraction hooks** so different training or attribution methods can be compared on the same environment
 
 ---
 
 ## Citation
 
-```
+```bibtex
 @misc{creditmaze2026,
-  title   = {CreditMaze: An RL Environment for Measuring Credit Assignment Quality},
+  title   = {CreditMaze: A Benchmark for Causal Decision Attribution in Long-Horizon Agent Workflows},
   year    = {2026},
   note    = {Meta PyTorch OpenEnv Hackathon submission}
 }

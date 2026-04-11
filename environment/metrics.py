@@ -72,6 +72,8 @@ class SessionMetrics:
             top_n      = set(sorted_steps[:n_pivot])
             psia_score = len(top_n & pivot_set) / n_pivot
         else:
+            sorted_steps = []
+            top_n = set()
             psia_score = 0.0
         self._psia.append(psia_score)
 
@@ -91,6 +93,31 @@ class SessionMetrics:
             mpcs_score = len(top_k & pivot_set) / n_pivot
             self._mpcs.append(mpcs_score)
 
+        top_attributed_step = sorted_steps[0] if sorted_steps else None
+        top_attributed_action = (
+            step_history[top_attributed_step][0]
+            if top_attributed_step is not None and top_attributed_step < len(step_history)
+            else None
+        )
+        top_attributed_credit = (
+            round(agent_credits[top_attributed_step], 4)
+            if top_attributed_step is not None
+            else None
+        )
+        pivotal_step_rank = None
+        if sorted_steps:
+            for idx, step_idx in enumerate(sorted_steps, start=1):
+                if step_idx in pivot_set:
+                    pivotal_step_rank = idx
+                    break
+
+        non_pivots = [t for t in agent_credits if t not in pivot_set]
+        best_pivot_credit = max((agent_credits[t] for t in pivot_set), default=0.0)
+        best_nonpivot_credit = max((agent_credits[t] for t in non_pivots), default=0.0)
+        attribution_gap = round(best_pivot_credit - best_nonpivot_credit, 4)
+        false_positive_steps = sorted(top_n - pivot_set)
+        success_with_wrong_attribution = (outcome == "success") and (psia_score < 1.0)
+
         self.n_complete += 1
 
         return {
@@ -98,6 +125,13 @@ class SessionMetrics:
             "psia": round(psia_score, 4),
             "cce":  round(cce_score,  4),
             "mpcs": round(mpcs_score, 4) if mpcs_score is not None else None,
+            "top_attributed_step": top_attributed_step,
+            "top_attributed_action": top_attributed_action,
+            "top_attributed_credit": top_attributed_credit,
+            "pivotal_step_rank": pivotal_step_rank,
+            "false_positive_steps": false_positive_steps,
+            "attribution_gap": attribution_gap,
+            "success_with_wrong_attribution": success_with_wrong_attribution,
         }
 
     # ── Session-level aggregates ──────────────────────────────────────────────

@@ -26,6 +26,7 @@ class EpisodeState:
         # List of (action_id, credit_estimate) per step
         self.step_history: List[Tuple[str, Optional[float]]] = []
         self.resolved_pivots = set()
+        self.episode_metrics: Dict[str, object] = {}
 
     @property
     def current_step(self) -> dict:
@@ -163,6 +164,7 @@ class CreditMazeEnv:
                 gt_labels=gt_labels,
                 outcome=ep.outcome,
             )
+            ep.episode_metrics = ep_metrics
 
         # Build observation for next step
         obs = self._make_obs(ep, last_action=action_id, last_reward=reward)
@@ -220,6 +222,13 @@ class CreditMazeEnv:
             session_tsr=round(self.metrics.tsr,  4),
             session_mpcs=round(self.metrics.mpcs, 4),
             episodes_completed=self.metrics.n_complete,
+            top_attributed_step=ep.episode_metrics.get("top_attributed_step") if done else None,
+            top_attributed_action=ep.episode_metrics.get("top_attributed_action") if done else None,
+            top_attributed_credit=ep.episode_metrics.get("top_attributed_credit") if done else None,
+            pivotal_step_rank=ep.episode_metrics.get("pivotal_step_rank") if done else None,
+            false_positive_steps=ep.episode_metrics.get("false_positive_steps") if done else None,
+            attribution_gap=ep.episode_metrics.get("attribution_gap") if done else None,
+            success_with_wrong_attribution=ep.episode_metrics.get("success_with_wrong_attribution") if done else None,
         )
 
     def normalized_score(self, episode_id: str) -> float:

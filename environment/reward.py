@@ -24,9 +24,9 @@ def compute_step_reward(
     - Efficiency bonus: fewer steps = higher final reward
 
     IMPORTANT: Step rewards deliberately do NOT reveal which step is pivotal.
-    The pivotal step's correct action gives 0.12 immediately — indistinguishable
-    from a near-pivot decoy — so the agent cannot simply follow immediate reward.
-    This is what makes credit assignment hard.
+    Decoy rewards grow slightly over the course of the episode, so locally
+    attractive actions can look competitive with the true pivot. This makes
+    simple reward-greedy strategies unreliable.
     """
     if outcome == "success":
         # Terminal success: base reward + efficiency bonus
@@ -41,5 +41,14 @@ def compute_step_reward(
         # Correct pivotal action — but small reward (not obviously pivotal)
         return 0.12
 
-    # Decoy step — small positive reward for valid action
+    # Decoy step — small positive reward for valid action.
+    # Later-stage decoys can look more valuable locally even when they are not
+    # causally decisive.
+    progress = step_idx / max(max_steps - 1, 1)
+    if progress >= 0.85:
+        return 0.10
+    if progress >= 0.60:
+        return 0.08
+    if progress >= 0.30:
+        return 0.06
     return 0.04

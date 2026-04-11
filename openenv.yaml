@@ -2,16 +2,16 @@ environment:
   name: CreditMaze
   version: "1.0.0"
   description: >
-    A rigorous RL and LLM-agent environment for measuring long-horizon causal credit assignment 
-    quality across real-world domains like research synthesis, debugging, and triage. Allows
-    researchers to measure whether an agent accomplished the task *and* identified the true 
-    pivotal scenario step over a sea of highly correlated decoys.
+    A benchmark for evaluating whether long-horizon AI agents can identify the evidence or
+    decision that actually caused success or failure. CreditMaze combines task success with
+    causal attribution quality across practical domains such as research synthesis, debugging,
+    resource allocation, and multi-signal triage.
   author: Meta Hackathon Submission
-  tags: [credit-assignment, real-world, debugging, research, agents]
+  tags: [causal-attribution, agent-evaluation, debugging, research, workflow-reasoning]
 
 tasks:
   - id: task_easy
-    description: "Introductory causality trial: Navigate a baseline branching decision tree with one critical focal constraint."
+    description: "Introductory causal navigation trial: identify the decisive route in a long corridor workflow with plausible distractions."
     difficulty: easy
     max_steps: 15
     grader:
@@ -19,7 +19,7 @@ tasks:
       prompt_template: >
         Score the agent's final outcome from 0.01 to 0.99. Provide higher scores if the agent successfully completed the baseline objective and accurately explicitly identified the single pivotal step that led to success. Reward partial progress smoothly.
   - id: task_medium
-    description: "Research Synthesis: Resolve contradicting external research sources to produce a logically sound qualified synthesis."
+    description: "Research synthesis task: reconcile credible but conflicting evidence without over-generalizing from persuasive decoys."
     difficulty: medium
     max_steps: 15
     grader:
@@ -27,7 +27,7 @@ tasks:
       prompt_template: >
         Score the agent's performance from 0.01 to 0.99. Award maximum points only if the agent logically resolved the conflicting research data and accurately placed maximum credit on the crucial evidence fragment among the decoys. Penalize generic summarizations.
   - id: task_hard
-    description: "Complex Debugging: Fix interwoven code bugs in the precise dependency order; wrong order triggers an irresolvable cyclic error."
+    description: "Complex debugging task: choose the root-cause fix in the right dependency order while visible symptom fixes tempt the agent off path."
     difficulty: hard
     max_steps: 15
     grader:
@@ -35,7 +35,7 @@ tasks:
       prompt_template: >
         Evaluate the debugging trajectory. Score from 0.01 to 0.99. The agent must have resolved dependencies sequentially without triggering cyclic traps. Furthermore, heavily penalize the score if the agent fails to accurately credit the root-cause bug resolution step.
   - id: resource_hard
-    description: "Resource Allocation under pressure: Allocate a finite time-sensitive resource before the irreversible commitment window permanently closes."
+    description: "Resource-allocation task under pressure: lock in the one irreversible commitment that preserves the success path before the window closes."
     difficulty: hard
     max_steps: 15
     grader:
@@ -43,7 +43,7 @@ tasks:
       prompt_template: >
         Score the agent's performance from 0.01 to 0.99 on the resource allocation. Success requires perfect timing before the window closed. The agent must explicitly acknowledge the timing constraint as the pivotal factor. Any failure to identify the pivot restricts the score drastically.
   - id: triage_multipivot
-    description: "Multi-pivot Triage: Identify multiple jointly-causal signals required to resolve an incident amidst high-correlation distress noise."
+    description: "Multi-pivot triage task: separate truly causal signals from persuasive correlates in a noisy investigation workflow."
     difficulty: hard
     max_steps: 15
     grader:

@@ -86,3 +86,12 @@ class State(BaseModel):
     session_tsr:        float = 0.0
     session_mpcs:       float = 0.0
     episodes_completed: int   = 0
+
+    # Episode-level attribution diagnostics (available after completion)
+    top_attributed_step: Optional[int] = None
+    top_attributed_action: Optional[str] = None
+    top_attributed_credit: Optional[float] = None
+    pivotal_step_rank: Optional[int] = None
+    false_positive_steps: Optional[List[int]] = None
+    attribution_gap: Optional[float] = None
+    success_with_wrong_attribution: Optional[bool] = None

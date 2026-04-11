@@ -3,7 +3,7 @@ Hackathon-compatible inference entrypoint for CreditMaze.
 
 This script emits only [START], [STEP], and [END] log lines so it can be used
 by automated evaluators. It uses the OpenAI client for LLM calls and falls back
-to a deterministic random policy when no model credentials are available.
+to a random valid-action policy when no model credentials are available.
 
 Runs all tasks defined in TASK_CONFIG sequentially so the validator sees
 3+ [END] lines with the correct task= field.
