@@ -18,7 +18,8 @@ from typing import Optional
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
-from openai import OpenAI
+# openai is lazy-imported inside _make_demo_client() to avoid crashing
+# the entire server at startup if the package is missing.
 
 from environment.env import CreditMazeEnv
 from environment.models import Action
@@ -120,7 +121,7 @@ def _homepage_html() -> str:
     @keyframes spin{to{transform:rotate(360deg)}}
 
     /* ── METRICS ROW ── */
-    .metrics-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:20px}
+    .metrics-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:20px}
     .m-card{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);border-radius:var(--r);padding:16px;text-align:center;transition:border-color .2s}
     .m-card:hover{border-color:rgba(129,140,248,.15)}
     .m-label{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3)}
@@ -257,6 +258,7 @@ def _homepage_html() -> str:
       <div class="m-card"><div class="m-label">Reward</div><div class="m-val" id="metricReward">0.00</div></div>
       <div class="m-card"><div class="m-label">PSIA</div><div class="m-val" id="metricPsia">0.00</div></div>
       <div class="m-card"><div class="m-label">CCE</div><div class="m-val" id="metricCce">0.50</div></div>
+      <div class="m-card"><div class="m-label">MPCS</div><div class="m-val" id="metricMpcs">—</div></div>
     </div>
 
     <!-- TABBED RESULTS -->
@@ -303,7 +305,7 @@ const els={
   modelInput:$('modelInput'),baseUrlInput:$('baseUrlInput'),apiKeyInput:$('apiKeyInput'),
   modeNote:$('modeNote'),autoRunBtn:$('autoRunBtn'),runSpinner:$('runSpinner'),runBtnText:$('runBtnText'),
   metricOutcome:$('metricOutcome'),metricReward:$('metricReward'),
-  metricPsia:$('metricPsia'),metricCce:$('metricCce'),
+  metricPsia:$('metricPsia'),metricCce:$('metricCce'),metricMpcs:$('metricMpcs'),
   runModeText:$('runModeText'),statusText:$('statusText'),graderText:$('graderText'),
   taskList:$('taskList'),timeline:$('timeline'),contextText:$('contextText'),
   heroTaskCount:$('heroTaskCount'),
@@ -410,6 +412,8 @@ async function runEval(){
     els.metricReward.textContent=Number(p.raw_reward||0).toFixed(2);
     els.metricPsia.textContent=Number(p.session_psia||0).toFixed(2);
     els.metricCce.textContent=Number(p.session_cce||0.5).toFixed(2);
+    const mpcsVal=p.session_mpcs!=null?Number(p.session_mpcs):null;
+    els.metricMpcs.textContent=mpcsVal!=null?mpcsVal.toFixed(2):'—';
     els.contextText.textContent=p.final_context||'Episode complete.';
     renderEpisodeSummary(p);renderGrader(p.grader);renderRunSummary(p);renderTimeline();
     // auto-flip to timeline tab
@@ -431,7 +435,8 @@ updateMode();renderRunSummary(null);renderEpisodeSummary(null);renderGrader(null
 """
 
 
-def _make_demo_client(req: DemoRunRequest) -> tuple[Optional[OpenAI], str, Optional[str], str]:
+def _make_demo_client(req: DemoRunRequest) -> tuple:
+    from openai import OpenAI  # lazy import — Bug 6 fix
     default_key = req.api_key or ""
     if not default_key:
         import os
@@ -647,6 +652,7 @@ def demo_run(req: DemoRunRequest):
 
     while True:
         obs_dict = obs.model_dump()
+        context_before = obs.context  # Bug 4 fix: capture BEFORE stepping
         decision, step_error, step_fallback = _choose_demo_action(client, model_label, obs_dict, req.task_id)
         action_id = decision.get("action_id", obs.available_actions[0])
         if action_id not in obs.available_actions:
@@ -669,7 +675,7 @@ def demo_run(req: DemoRunRequest):
             "reward": result.reward,
             "done": result.done,
             "error": step_error,
-            "context_snippet": result.observation.context[:220],
+            "context_snippet": context_before[:220],
         })
         obs = result.observation
         if result.done:
@@ -688,6 +694,7 @@ def demo_run(req: DemoRunRequest):
         "raw_reward": grader_payload["raw_reward"],
         "session_psia": grader_payload["session_psia"],
         "session_cce": grader_payload["session_cce"],
+        "session_mpcs": grader_payload.get("session_mpcs"),
         "final_context": obs.context,
         "steps": steps,
         "grader": grader_payload,

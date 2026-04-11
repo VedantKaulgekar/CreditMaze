@@ -199,7 +199,7 @@ class TestCounterfactualSimulator:
         # Step 0 is always a decoy (entry point)
         outcome, reward = simulator.advance(ep, 0, ep.steps[0]["available_actions"][0])
         assert outcome == "in_progress"
-        assert reward == pytest.approx(0.04)
+        assert reward == pytest.approx(0.06)
 
 
 # ════════════════════════════════════════════════════════════════════════════════
@@ -218,11 +218,12 @@ class TestReward:
 
     def test_decoy_step_reward(self):
         r = compute_step_reward("in_progress", 2, False, 3, 15)
-        assert r == pytest.approx(0.04)
+        assert r == pytest.approx(0.06)
 
     def test_pivotal_correct_reward(self):
+        """Pivot and decoy in-progress rewards are now identical (uniform)."""
         r = compute_step_reward("in_progress", 5, True, 6, 15)
-        assert r == pytest.approx(0.12)
+        assert r == pytest.approx(0.06)
 
     def test_efficiency_bonus_on_success(self):
         # Early success should give higher reward than late success

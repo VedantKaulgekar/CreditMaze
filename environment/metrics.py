@@ -64,13 +64,21 @@ class SessionMetrics:
         # ── PSIA ─────────────────────────────────────────────────────────────
         # Did agent assign top-N credit to the true pivotal steps?
         if agent_credits:
+            # Detect uniform / constant credit estimates: when all values
+            # are identical, ranking is arbitrary so PSIA = random chance.
+            _vals = list(agent_credits.values())
+            all_equal = (max(_vals) - min(_vals)) < 1e-9
             sorted_steps = sorted(
                 agent_credits.keys(),
                 key=lambda t: agent_credits[t],
                 reverse=True,
             )
-            top_n      = set(sorted_steps[:n_pivot])
-            psia_score = len(top_n & pivot_set) / n_pivot
+            if all_equal:
+                psia_score = n_pivot / max(len(agent_credits), 1)
+                top_n      = set(sorted_steps[:n_pivot])
+            else:
+                top_n      = set(sorted_steps[:n_pivot])
+                psia_score = len(top_n & pivot_set) / n_pivot
         else:
             sorted_steps = []
             top_n = set()
@@ -78,9 +86,14 @@ class SessionMetrics:
         self._psia.append(psia_score)
 
         # ── CCE ───────────────────────────────────────────────────────────────
-        # MSE between agent estimates and ground-truth labels
+        # MSE between agent estimates and ground-truth labels.
+        # Only evaluate over steps the agent actually took (t < n_steps)
+        # so that unplayed steps in early-failure episodes do not inflate
+        # the error with phantom 0.5-vs-0.0 penalties.
         sq_errors = []
         for t, gt in gt_labels.items():
+            if t >= n_steps:
+                continue  # skip steps that were never played
             est = agent_credits.get(t, 0.5)
             sq_errors.append((est - gt) ** 2)
         cce_score = float(np.mean(sq_errors)) if sq_errors else 0.5
@@ -112,7 +125,9 @@ class SessionMetrics:
                     break
 
         non_pivots = [t for t in agent_credits if t not in pivot_set]
-        best_pivot_credit = max((agent_credits[t] for t in pivot_set), default=0.0)
+        # Only consider pivots that were actually played (exist in agent_credits)
+        played_pivots = [t for t in pivot_set if t in agent_credits]
+        best_pivot_credit = max((agent_credits[t] for t in played_pivots), default=0.0)
         best_nonpivot_credit = max((agent_credits[t] for t in non_pivots), default=0.0)
         attribution_gap = round(best_pivot_credit - best_nonpivot_credit, 4)
         false_positive_steps = sorted(top_n - pivot_set)

@@ -122,10 +122,10 @@ class CounterfactualSimulator:
                     return "success", 0.50
                 else:
                     # More pivots remain
-                    return "in_progress", 0.12
+                    return "in_progress", 0.06
             else:
                 # Wrong action at pivot → failure
                 return "failure", 0.0
         else:
-            # Decoy step — small positive reward for any valid action
-            return "in_progress", 0.04
+            # Decoy step — uniform positive reward for any valid action
+            return "in_progress", 0.06
