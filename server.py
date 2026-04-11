@@ -12,12 +12,13 @@ Endpoints (all required by OpenEnv spec):
   GET  /health    — health check
 """
 from __future__ import annotations
-import subprocess, json
+import subprocess, json, random
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
+from openai import OpenAI
 
 from environment.env import CreditMazeEnv
 from environment.models import Action
@@ -33,6 +34,21 @@ app = FastAPI(
 )
 
 env = CreditMazeEnv()
+
+TASK_CONFIG = {
+    "task_easy": {"tier": "easy", "domain": "corridor"},
+    "task_medium": {"tier": "medium", "domain": "research"},
+    "task_hard": {"tier": "hard", "domain": "debugging"},
+    "resource_hard": {"tier": "hard", "domain": "resource"},
+    "triage_multipivot": {"tier": "multi-pivot", "domain": "triage"},
+}
+
+UI_SYSTEM_PROMPT = (
+    "You are interacting with the CreditMaze benchmark. "
+    "Choose exactly one valid action_id from the list you are given, and estimate "
+    "how important the current step is to final success. "
+    'Respond with JSON only: {"action_id":"...", "reasoning":"...", "credit_estimate":0.0}'
+)
 
 
 def _homepage_html() -> str:
@@ -394,9 +410,35 @@ def _homepage_html() -> str:
             </div>
           </div>
           <div class="field-row">
+            <div class="field">
+              <label for="runMode">Agent Mode</label>
+              <select id="runMode">
+                <option value="auto">LLM if configured, else random fallback</option>
+                <option value="llm">Force LLM</option>
+                <option value="random">Random baseline</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="modelInput">Model Name</label>
+              <input id="modelInput" type="text" placeholder="Optional override, e.g. gpt-4o-mini">
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="baseUrlInput">API Base URL</label>
+              <input id="baseUrlInput" type="text" placeholder="Optional override, e.g. https://router.huggingface.co/v1">
+            </div>
+            <div class="field">
+              <label for="apiKeyInput">API Key</label>
+              <input id="apiKeyInput" type="password" placeholder="Optional temporary key for this browser session">
+            </div>
+          </div>
+          <div class="hint">Use server-side environment variables, or paste temporary values here to test an LLM path. If the model call fails and mode is <code>auto</code>, the demo falls back to random actions.</div>
+          <div class="field-row">
             <button id="resetBtn">Start Episode</button>
             <button id="graderBtn" class="secondary" disabled>Run Grader</button>
           </div>
+          <button id="autoRunBtn" class="secondary">Run Agent Automatically</button>
           <div class="context-panel">
             <h3>Current Context</h3>
             <pre id="contextText">Start an episode to load the benchmark state.</pre>
@@ -425,6 +467,10 @@ def _homepage_html() -> str:
             <div class="metric"><div class="label">Reward</div><div class="value" id="metricReward">0.00</div></div>
             <div class="metric"><div class="label">PSIA</div><div class="value" id="metricPsia">0.00</div></div>
             <div class="metric"><div class="label">CCE</div><div class="value" id="metricCce">0.50</div></div>
+          </div>
+          <div class="json-panel" style="margin-top:14px;">
+            <h3>Execution Mode</h3>
+            <pre id="runModeText">Manual interaction. Use "Run Agent Automatically" to test an LLM or random fallback.</pre>
           </div>
           <div class="status-grid" style="margin-top:14px;">
             <div class="json-panel">
@@ -480,12 +526,18 @@ def _homepage_html() -> str:
       contextText: document.getElementById('contextText'),
       reasoningInput: document.getElementById('reasoningInput'),
       creditInput: document.getElementById('creditInput'),
+      runMode: document.getElementById('runMode'),
+      modelInput: document.getElementById('modelInput'),
+      baseUrlInput: document.getElementById('baseUrlInput'),
+      apiKeyInput: document.getElementById('apiKeyInput'),
+      autoRunBtn: document.getElementById('autoRunBtn'),
       actionChips: document.getElementById('actionChips'),
       stepBtn: document.getElementById('stepBtn'),
       metricOutcome: document.getElementById('metricOutcome'),
       metricReward: document.getElementById('metricReward'),
       metricPsia: document.getElementById('metricPsia'),
       metricCce: document.getElementById('metricCce'),
+      runModeText: document.getElementById('runModeText'),
       statusText: document.getElementById('statusText'),
       graderText: document.getElementById('graderText'),
       taskList: document.getElementById('taskList'),
@@ -556,6 +608,12 @@ def _homepage_html() -> str:
       }, null, 2);
     }
 
+    function syncRunButtons(busy) {
+      els.resetBtn.disabled = busy;
+      els.stepBtn.disabled = busy || !(state.episodeId && state.selectedAction && !state.done);
+      els.autoRunBtn.disabled = busy;
+    }
+
     function renderTimeline() {
       if (!state.timeline.length) {
         els.timeline.innerHTML = '<p class="muted">No steps yet.</p>';
@@ -615,6 +673,7 @@ def _homepage_html() -> str:
       els.reasoningInput.value = '';
       els.creditInput.value = '0.50';
       els.graderBtn.disabled = true;
+      els.runModeText.textContent = 'Manual interaction. Current mode: browser-driven step selection.';
       renderObservation(obs);
       renderTimeline();
     }
@@ -649,6 +708,62 @@ def _homepage_html() -> str:
       els.stepBtn.disabled = state.done;
     }
 
+    async function autoRunEpisode() {
+      syncRunButtons(true);
+      try {
+        const payload = await api('/demo/run', {
+          method: 'POST',
+          body: JSON.stringify({
+            task_id: els.taskSelect.value,
+            seed: Number(els.seedInput.value || 42),
+            mode: els.runMode.value,
+            model_name: els.modelInput.value || null,
+            api_base_url: els.baseUrlInput.value || null,
+            api_key: els.apiKeyInput.value || null,
+          }),
+        });
+        state.timeline = (payload.steps || []).map(item => ({
+          step: item.step,
+          action: item.action,
+          reward: item.reward,
+          done: item.done,
+          error: item.error,
+          contextSnippet: item.context_snippet || '',
+        }));
+        state.done = true;
+        state.episodeId = payload.episode_id;
+        els.metricOutcome.textContent = payload.outcome || '-';
+        els.metricReward.textContent = Number(payload.raw_reward || 0).toFixed(2);
+        els.metricPsia.textContent = Number(payload.session_psia || 0).toFixed(2);
+        els.metricCce.textContent = Number(payload.session_cce || 0.5).toFixed(2);
+        els.contextText.textContent = payload.final_context || 'Episode complete.';
+        els.statusText.textContent = JSON.stringify({
+          episode_id: payload.episode_id,
+          task_id: payload.task_id,
+          mode_used: payload.mode_used,
+          model_label: payload.model_label,
+          outcome: payload.outcome,
+          raw_reward: payload.raw_reward,
+          score: payload.score,
+        }, null, 2);
+        els.graderText.textContent = JSON.stringify(payload.grader, null, 2);
+        els.runModeText.textContent = JSON.stringify({
+          requested_mode: els.runMode.value,
+          mode_used: payload.mode_used,
+          model_label: payload.model_label,
+          used_fallback: payload.used_fallback,
+          fallback_reason: payload.fallback_reason,
+        }, null, 2);
+        renderActionChips([]);
+        renderTimeline();
+        els.graderBtn.disabled = false;
+      } catch (err) {
+        els.runModeText.textContent = 'Automatic run failed: ' + err.message;
+      } finally {
+        syncRunButtons(false);
+      }
+    }
+
     async function runGrader() {
       if (!state.episodeId || !state.done) return;
       const result = await api('/grader', {
@@ -664,6 +779,7 @@ def _homepage_html() -> str:
     els.resetBtn.addEventListener('click', startEpisode);
     els.stepBtn.addEventListener('click', submitStep);
     els.graderBtn.addEventListener('click', runGrader);
+    els.autoRunBtn.addEventListener('click', autoRunEpisode);
 
     loadTasks().catch(err => {
       els.statusText.textContent = 'Failed to load task catalog: ' + err.message;
@@ -671,6 +787,68 @@ def _homepage_html() -> str:
   </script>
 </body>
 </html>"""
+
+
+def _make_demo_client(req: DemoRunRequest) -> tuple[Optional[OpenAI], str, Optional[str], str]:
+    default_key = req.api_key or ""
+    if not default_key:
+        import os
+        default_key = (
+            os.getenv("API_KEY")
+            or os.getenv("HF_TOKEN")
+            or os.getenv("OPENAI_API_KEY")
+            or ""
+        )
+    default_base = req.api_base_url or "https://router.huggingface.co/v1"
+    default_model = req.model_name or "Qwen/Qwen2.5-72B-Instruct"
+
+    if req.mode == "random":
+        return None, "random-baseline", None, "random"
+    if req.mode == "llm" and not default_key:
+        raise HTTPException(400, "LLM mode requested but no API key was provided in the form or server environment.")
+    if not default_key:
+        return None, "random-baseline", "no_credentials", "random"
+    client = OpenAI(base_url=default_base, api_key=default_key, max_retries=0)
+    return client, default_model, None, "llm"
+
+
+def _choose_demo_action(client: Optional[OpenAI], model_name: str, obs: dict, task_id: str) -> tuple[dict, Optional[str], bool]:
+    if client is None:
+        return ({
+            "action_id": random.choice(obs["available_actions"]),
+            "reasoning": "Random baseline",
+            "credit_estimate": 0.5,
+        }, "random_fallback:no_credentials", True)
+
+    prompt = (
+        f"Task: {task_id}\n"
+        f"Domain: {obs['domain']}\n"
+        f"Tier: {obs['tier']}\n"
+        f"Step: {obs['step_count'] + 1}/{obs['t_total']}\n"
+        f"Context:\n{obs['context']}\n\n"
+        f"Available actions: {obs['available_actions']}"
+    )
+    try:
+        completion = client.chat.completions.create(
+            model=model_name,
+            messages=[
+                {"role": "system", "content": UI_SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0,
+            stream=False,
+        )
+        content = (completion.choices[0].message.content or "").strip()
+        parsed = json.loads(content)
+        credit = float(parsed.get("credit_estimate", 0.5))
+        parsed["credit_estimate"] = min(max(credit, 0.0), 1.0)
+        return parsed, None, False
+    except Exception as exc:
+        return ({
+            "action_id": random.choice(obs["available_actions"]),
+            "reasoning": "Random fallback",
+            "credit_estimate": 0.5,
+        }, f"random_fallback:model_call_failed:{type(exc).__name__}", True)
 
 
 # ── Request schemas ───────────────────────────────────────────────────────────
@@ -690,6 +868,18 @@ class StepRequest(BaseModel):
 
 class GraderRequest(BaseModel):
     episode_id: str
+
+
+class DemoRunRequest(BaseModel):
+    task_id: str
+    seed: Optional[int] = 42
+    mode: str = "auto"
+    api_base_url: Optional[str] = None
+    model_name: Optional[str] = None
+    api_key: Optional[str] = None
+
+
+DemoRunRequest.model_rebuild()
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -798,6 +988,68 @@ def baseline():
         raise HTTPException(504, "Baseline script timed out")
     except json.JSONDecodeError:
         raise HTTPException(500, "Baseline script did not produce valid JSON")
+
+
+@app.post("/demo/run")
+def demo_run(req: DemoRunRequest):
+    if req.task_id not in TASK_CONFIG:
+        raise HTTPException(400, f"Unknown task_id '{req.task_id}'")
+
+    client, model_label, startup_reason, mode_used = _make_demo_client(req)
+    cfg = TASK_CONFIG[req.task_id]
+    obs = env.reset(tier=cfg["tier"], domain=cfg["domain"], seed=req.seed)
+    episode_id = obs.episode_id
+    steps = []
+    used_fallback = startup_reason is not None
+    fallback_reason = startup_reason
+
+    while True:
+        obs_dict = obs.model_dump()
+        decision, step_error, step_fallback = _choose_demo_action(client, model_label, obs_dict, req.task_id)
+        action_id = decision.get("action_id", obs.available_actions[0])
+        if action_id not in obs.available_actions:
+            action_id = obs.available_actions[0]
+        if step_fallback:
+            used_fallback = True
+            fallback_reason = step_error
+            mode_used = "random-fallback"
+        result = env.step(
+            episode_id,
+            Action(
+                action_id=action_id,
+                reasoning=decision.get("reasoning"),
+                credit_estimate=float(decision.get("credit_estimate", 0.5)),
+            ),
+        )
+        steps.append({
+            "step": result.observation.step_count,
+            "action": action_id,
+            "reward": result.reward,
+            "done": result.done,
+            "error": step_error,
+            "context_snippet": result.observation.context[:220],
+        })
+        obs = result.observation
+        if result.done:
+            break
+
+    grader_payload = grader(GraderRequest(episode_id=episode_id))
+    return {
+        "task_id": req.task_id,
+        "episode_id": episode_id,
+        "mode_used": mode_used,
+        "model_label": model_label,
+        "used_fallback": used_fallback,
+        "fallback_reason": fallback_reason,
+        "outcome": grader_payload["outcome"],
+        "score": grader_payload["score"],
+        "raw_reward": grader_payload["raw_reward"],
+        "session_psia": grader_payload["session_psia"],
+        "session_cce": grader_payload["session_cce"],
+        "final_context": obs.context,
+        "steps": steps,
+        "grader": grader_payload,
+    }
 
 
 @app.get("/", response_class=HTMLResponse)
