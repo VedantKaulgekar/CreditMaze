@@ -57,681 +57,378 @@ def _homepage_html() -> str:
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>CreditMaze</title>
+  <title>CreditMaze — Causal Decision Attribution Benchmark</title>
+  <meta name="description" content="CreditMaze: A long-horizon benchmark for evaluating causal decision attribution in AI agents.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
-    :root {
-      --bg: #f4efe3;
-      --paper: #fffaf0;
-      --panel: rgba(255, 250, 240, 0.84);
-      --ink: #172238;
-      --muted: #596579;
-      --line: rgba(23, 34, 56, 0.12);
-      --accent: #0f766e;
-      --accent-2: #d97706;
-      --accent-3: #1d4ed8;
-      --success: #166534;
-      --danger: #b91c1c;
-      --shadow: 0 26px 60px rgba(23, 34, 56, 0.12);
-      --radius-xl: 28px;
-      --radius-lg: 20px;
-      --radius-md: 14px;
+    *{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#06080f;--bg2:#0c1020;--card:#111827;--card-b:rgba(99,102,241,.08);
+      --card-h:rgba(99,102,241,.14);--t:#e2e8f0;--t2:#94a3b8;--t3:#475569;
+      --pri:#14b8a6;--sec:#818cf8;--acc:#f59e0b;--ok:#34d399;--err:#fb7185;
+      --r:14px;--r2:10px;--r3:20px;
+      --sh:0 1px 3px rgba(0,0,0,.4);
     }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      color: var(--ink);
-      font-family: "Georgia", "Palatino Linotype", serif;
-      background:
-        radial-gradient(circle at top left, rgba(29, 78, 216, 0.14), transparent 32%),
-        radial-gradient(circle at top right, rgba(217, 119, 6, 0.18), transparent 30%),
-        linear-gradient(180deg, #f7f2e8 0%, #efe6d7 100%);
-      min-height: 100vh;
+    body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t);min-height:100vh;overflow-x:hidden}
+    body::before{content:"";position:fixed;inset:0;background:radial-gradient(ellipse 70% 50% at 20% 0%,rgba(99,102,241,.06),transparent),radial-gradient(ellipse 50% 40% at 80% 100%,rgba(20,184,166,.04),transparent);pointer-events:none}
+    .app{position:relative;z-index:1;max-width:1120px;margin:0 auto;padding:20px 20px 40px}
+
+    /* ── NAV BAR ── */
+    .nav{display:flex;align-items:center;gap:14px;padding:14px 0;margin-bottom:8px}
+    .nav .logo{font-size:1.25rem;font-weight:900;letter-spacing:-.03em;background:linear-gradient(135deg,var(--pri),var(--sec));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .nav .badge{font-size:.7rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:4px 10px;border-radius:999px;background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.18);color:var(--sec)}
+    .nav .spacer{flex:1}
+    .nav .link{font-size:.82rem;color:var(--t2);text-decoration:none;padding:6px 12px;border-radius:8px;transition:background .2s}
+    .nav .link:hover{background:rgba(255,255,255,.04)}
+
+    /* ── HERO ── */
+    .hero{text-align:center;padding:40px 20px 32px}
+    .hero h1{font-size:clamp(1.8rem,4vw,3rem);font-weight:900;letter-spacing:-.04em;line-height:1.1;background:linear-gradient(135deg,#f1f5f9,var(--pri) 60%,var(--sec));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .hero p{max-width:680px;margin:14px auto 0;color:var(--t2);font-size:.95rem;line-height:1.7}
+    .hero-metrics{display:flex;justify-content:center;gap:28px;margin-top:28px;flex-wrap:wrap}
+    .hero-m{text-align:center}
+    .hero-m .hv{font-family:'JetBrains Mono',monospace;font-size:1.3rem;font-weight:700;color:#fff}
+    .hero-m .hl{font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-top:4px}
+
+    /* ── CARDS ── */
+    .card{background:var(--card);border:1px solid var(--card-b);border-radius:var(--r3);padding:24px;box-shadow:var(--sh)}
+    .card h2{font-size:1.15rem;font-weight:800;letter-spacing:-.02em;margin-bottom:4px}
+    .card .sub{color:var(--t2);font-size:.85rem;margin-bottom:16px}
+
+    /* ── CONFIG SECTION ── */
+    .config-grid{display:grid;grid-template-columns:1fr 100px 1fr 1fr;gap:12px;align-items:end}
+    .field{display:flex;flex-direction:column;gap:5px}
+    .field label{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3)}
+    .field select,.field input{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:var(--r2);padding:10px 12px;color:var(--t);font-size:.88rem;font-family:inherit;outline:none;transition:border .2s,box-shadow .2s;width:100%}
+    .field select:focus,.field input:focus{border-color:var(--sec);box-shadow:0 0 0 2px rgba(129,140,248,.15)}
+    .field select{cursor:pointer}
+    .field select option{background:var(--bg2)}
+    .field input:disabled,.field select:disabled{opacity:.35;cursor:not-allowed}
+
+    .config-row2{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-top:12px}
+    .mode-hint{grid-column:1/-1;font-size:.8rem;color:var(--t3);padding:10px 14px;background:rgba(129,140,248,.05);border:1px solid rgba(129,140,248,.08);border-radius:var(--r2);line-height:1.5}
+
+    .run-row{display:flex;gap:12px;margin-top:16px;align-items:center}
+    .btn{border:none;border-radius:var(--r2);cursor:pointer;font-family:inherit;font-weight:700;font-size:.9rem;padding:12px 28px;transition:transform .15s,box-shadow .15s,opacity .15s;display:inline-flex;align-items:center;gap:8px}
+    .btn-go{background:linear-gradient(135deg,var(--pri),var(--sec));color:#fff;box-shadow:0 4px 16px rgba(20,184,166,.25)}
+    .btn-go:hover{transform:translateY(-1px);box-shadow:0 6px 24px rgba(20,184,166,.3)}
+    .btn-go:disabled{opacity:.45;cursor:not-allowed;transform:none}
+    .spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;display:none}
+    .spinner.on{display:inline-block}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* ── METRICS ROW ── */
+    .metrics-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:20px}
+    .m-card{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);border-radius:var(--r);padding:16px;text-align:center;transition:border-color .2s}
+    .m-card:hover{border-color:rgba(129,140,248,.15)}
+    .m-label{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3)}
+    .m-val{font-family:'JetBrains Mono',monospace;font-size:1.6rem;font-weight:700;color:#fff;margin-top:8px;transition:color .3s}
+    .m-val.ok{color:var(--ok)}.m-val.err{color:var(--err)}
+
+    /* ── TABS ── */
+    .tabs{display:flex;gap:4px;margin-top:20px;background:rgba(255,255,255,.03);border-radius:var(--r2);padding:4px;border:1px solid rgba(255,255,255,.05)}
+    .tab-btn{flex:1;padding:10px;font-size:.82rem;font-weight:600;border:none;background:transparent;color:var(--t3);cursor:pointer;border-radius:8px;transition:all .2s;font-family:inherit}
+    .tab-btn.active{background:rgba(129,140,248,.12);color:var(--sec)}
+    .tab-btn:hover:not(.active){background:rgba(255,255,255,.03)}
+    .tab-panel{display:none;margin-top:16px}
+    .tab-panel.active{display:block}
+
+    /* ── TIMELINE ── */
+    .tl-item{display:grid;grid-template-columns:36px 1fr;gap:0;margin-bottom:2px}
+    .tl-dot-col{display:flex;flex-direction:column;align-items:center}
+    .tl-dot{width:10px;height:10px;border-radius:50%;background:var(--pri);margin-top:6px;flex-shrink:0;box-shadow:0 0 0 3px rgba(20,184,166,.15)}
+    .tl-dot.fail{background:var(--err);box-shadow:0 0 0 3px rgba(251,113,133,.15)}
+    .tl-line{width:2px;flex:1;background:rgba(255,255,255,.06);margin-top:4px}
+    .tl-item:last-child .tl-line{display:none}
+    .tl-body{padding:0 0 16px}
+    .tl-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .tl-step{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3)}
+    .tl-act{font-family:'JetBrains Mono',monospace;font-size:.85rem;font-weight:600;color:var(--t)}
+    .tl-rw{font-family:'JetBrains Mono',monospace;font-size:.72rem;font-weight:600;padding:2px 7px;border-radius:5px}
+    .tl-rw.pos{background:rgba(52,211,153,.1);color:var(--ok);border:1px solid rgba(52,211,153,.15)}
+    .tl-rw.zero{background:rgba(251,113,133,.1);color:var(--err);border:1px solid rgba(251,113,133,.15)}
+    .tl-ctx{font-size:.82rem;color:var(--t2);line-height:1.5;margin-top:4px}
+
+    /* ── SUMMARY GRID ── */
+    .sg{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px}
+    .sg-item{padding:10px 12px;border-radius:var(--r2);background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.04)}
+    .sg-k{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3);margin-bottom:4px}
+    .sg-v{font-family:'JetBrains Mono',monospace;font-size:.82rem;font-weight:600;color:var(--t);word-break:break-all}
+
+    /* ── CONTEXT BOX ── */
+    .ctx-box{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);border-radius:var(--r2);padding:14px;margin-top:12px}
+    .ctx-box h3{font-size:.85rem;font-weight:700;margin-bottom:8px}
+    .ctx-box pre{font-family:'JetBrains Mono',monospace;font-size:.8rem;line-height:1.6;color:var(--t2);white-space:pre-wrap;word-break:break-word;margin:0}
+
+    /* ── TASK CATALOG ── */
+    .task-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;margin-top:16px}
+    .t-card{padding:16px;border-radius:var(--r);background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);transition:border-color .2s}
+    .t-card:hover{border-color:rgba(129,140,248,.15)}
+    .t-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+    .t-name{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:700}
+    .pill{font-size:.65rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:999px}
+    .pill-easy{background:rgba(52,211,153,.1);color:var(--ok);border:1px solid rgba(52,211,153,.18)}
+    .pill-medium{background:rgba(245,158,11,.1);color:var(--acc);border:1px solid rgba(245,158,11,.18)}
+    .pill-hard{background:rgba(251,113,133,.1);color:var(--err);border:1px solid rgba(251,113,133,.18)}
+    .t-meta{font-size:.75rem;color:var(--t3)}
+    .t-desc{font-size:.8rem;color:var(--t2);line-height:1.5;margin-top:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+    /* ── FOOTER ── */
+    .footer{text-align:center;padding:24px 0 0;color:var(--t3);font-size:.78rem;line-height:1.6}
+    .footer code{padding:2px 5px;border-radius:4px;background:rgba(255,255,255,.04);font-family:'JetBrains Mono',monospace;font-size:.72rem}
+
+    .mt12{margin-top:12px}.mt20{margin-top:20px}
+    .hidden{display:none!important}
+
+    @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+    .fade{animation:fadeIn .4s ease both}
+    .fd1{animation-delay:.05s}.fd2{animation-delay:.1s}.fd3{animation-delay:.15s}
+
+    @media(max-width:768px){
+      .config-grid{grid-template-columns:1fr 1fr}
+      .config-row2{grid-template-columns:1fr 1fr}
+      .metrics-row{grid-template-columns:1fr 1fr}
+      .task-row{grid-template-columns:1fr}
+      .hero-metrics{gap:16px}
     }
-    .shell {
-      width: min(1220px, calc(100vw - 32px));
-      margin: 24px auto 40px;
-      display: grid;
-      gap: 18px;
-    }
-    .hero {
-      position: relative;
-      overflow: hidden;
-      border-radius: var(--radius-xl);
-      background:
-        linear-gradient(135deg, rgba(15,118,110,0.94), rgba(29,78,216,0.92) 58%, rgba(217,119,6,0.86));
-      color: #f8fafc;
-      padding: 34px 34px 30px;
-      box-shadow: var(--shadow);
-      isolation: isolate;
-    }
-    .hero::after {
-      content: "";
-      position: absolute;
-      inset: auto -12% -28% 38%;
-      height: 280px;
-      background: radial-gradient(circle, rgba(255,255,255,0.18), transparent 62%);
-      transform: rotate(-8deg);
-      z-index: -1;
-    }
-    .eyebrow {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 14px;
-      border-radius: 999px;
-      background: rgba(255,255,255,0.16);
-      font: 600 13px/1 "Trebuchet MS", "Segoe UI", sans-serif;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-    }
-    h1 {
-      margin: 18px 0 12px;
-      font-size: clamp(2.3rem, 5vw, 4.2rem);
-      line-height: 0.95;
-      letter-spacing: -0.04em;
-    }
-    .hero p {
-      max-width: 760px;
-      margin: 0;
-      font-size: 1.03rem;
-      line-height: 1.65;
-      color: rgba(248, 250, 252, 0.92);
-    }
-    .hero-grid {
-      margin-top: 24px;
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 14px;
-    }
-    .hero-stat {
-      border-radius: 18px;
-      padding: 16px 18px;
-      background: rgba(255,255,255,0.12);
-      border: 1px solid rgba(255,255,255,0.16);
-      backdrop-filter: blur(10px);
-    }
-    .hero-stat strong {
-      display: block;
-      font-size: 1.45rem;
-      margin-bottom: 4px;
-    }
-    .layout {
-      display: grid;
-      grid-template-columns: 1.18fr 0.82fr;
-      gap: 18px;
-    }
-    .card {
-      border-radius: var(--radius-xl);
-      background: var(--panel);
-      border: 1px solid rgba(255,255,255,0.42);
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(16px);
-      padding: 24px;
-    }
-    .card h2, .card h3 {
-      margin: 0 0 10px;
-      line-height: 1.1;
-    }
-    .card h2 { font-size: 1.7rem; }
-    .card h3 { font-size: 1.18rem; }
-    .muted, .card p, .card li, label, .hint {
-      color: var(--muted);
-      font-family: "Trebuchet MS", "Segoe UI", sans-serif;
-    }
-    .stack { display: grid; gap: 14px; }
-    .metrics {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 12px;
-    }
-    .metric {
-      padding: 16px;
-      border-radius: 18px;
-      background: rgba(255,255,255,0.62);
-      border: 1px solid var(--line);
-    }
-    .metric .label {
-      font: 700 12px/1 "Trebuchet MS", "Segoe UI", sans-serif;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-    .metric .value {
-      margin-top: 10px;
-      font-size: 1.48rem;
-      font-weight: 700;
-    }
-    .task-list {
-      display: grid;
-      gap: 12px;
-      margin-top: 16px;
-    }
-    .task {
-      padding: 16px;
-      border-radius: 18px;
-      border: 1px solid var(--line);
-      background: rgba(255,255,255,0.56);
-    }
-    .task-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 8px;
-    }
-    .pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      border-radius: 999px;
-      padding: 6px 10px;
-      font: 700 12px/1 "Trebuchet MS", "Segoe UI", sans-serif;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      color: #fff;
-      background: var(--accent);
-    }
-    .pill.alt { background: var(--accent-2); }
-    .pill.blue { background: var(--accent-3); }
-    .controls {
-      display: grid;
-      gap: 14px;
-      margin-top: 18px;
-    }
-    .field {
-      display: grid;
-      gap: 8px;
-    }
-    .field-row {
-      display: grid;
-      grid-template-columns: 1fr 130px;
-      gap: 12px;
-    }
-    .field-row.equal {
-      grid-template-columns: 1fr 1fr;
-    }
-    select, input, textarea, button {
-      width: 100%;
-      border: 1px solid rgba(23,34,56,0.12);
-      border-radius: 14px;
-      background: rgba(255,255,255,0.86);
-      color: var(--ink);
-      padding: 13px 14px;
-      font-size: 0.98rem;
-      font-family: "Trebuchet MS", "Segoe UI", sans-serif;
-    }
-    button {
-      cursor: pointer;
-      font-weight: 700;
-      background: linear-gradient(135deg, var(--accent), var(--accent-3));
-      color: #fff;
-      border: none;
-      box-shadow: 0 16px 30px rgba(15,118,110,0.18);
-      transition: transform .18s ease, box-shadow .18s ease, opacity .18s ease;
-    }
-    button.secondary {
-      background: rgba(255,255,255,0.72);
-      color: var(--ink);
-      border: 1px solid var(--line);
-      box-shadow: none;
-    }
-    button:hover { transform: translateY(-1px); }
-    button:disabled { opacity: 0.58; cursor: not-allowed; transform: none; }
-    .context-panel, .timeline, .json-panel {
-      border-radius: 18px;
-      padding: 18px;
-      background: rgba(255,255,255,0.62);
-      border: 1px solid var(--line);
-    }
-    .timeline-item {
-      position: relative;
-      padding: 0 0 14px 18px;
-      margin-left: 4px;
-      border-left: 2px solid rgba(23,34,56,0.12);
-    }
-    .timeline-item:last-child {
-      border-left-color: transparent;
-      padding-bottom: 0;
-    }
-    .timeline-item::before {
-      content: "";
-      position: absolute;
-      left: -7px;
-      top: 4px;
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      background: var(--accent);
-      box-shadow: 0 0 0 4px rgba(15,118,110,0.12);
-    }
-    .timeline-item.fail::before {
-      background: var(--danger);
-      box-shadow: 0 0 0 4px rgba(185,28,28,0.12);
-    }
-    .timeline-meta {
-      font: 700 12px/1 "Trebuchet MS", "Segoe UI", sans-serif;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 6px;
-    }
-    .summary-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
-    }
-    .summary-item {
-      border-radius: 14px;
-      border: 1px solid var(--line);
-      background: rgba(255,255,255,0.6);
-      padding: 12px 13px;
-    }
-    .summary-item .key {
-      display: block;
-      font: 700 11px/1 "Trebuchet MS", "Segoe UI", sans-serif;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--muted);
-      margin-bottom: 8px;
-    }
-    .summary-item .val {
-      font: 700 15px/1.35 "Trebuchet MS", "Segoe UI", sans-serif;
-      color: var(--ink);
-      word-break: break-word;
-    }
-    .mode-note {
-      border-radius: 16px;
-      padding: 14px 16px;
-      background: linear-gradient(135deg, rgba(15,118,110,0.10), rgba(29,78,216,0.08));
-      border: 1px solid rgba(29,78,216,0.12);
-      color: var(--muted);
-      font: 600 14px/1.6 "Trebuchet MS", "Segoe UI", sans-serif;
-    }
-    .run-button {
-      font-size: 1rem;
-      padding-block: 15px;
-    }
-    .status-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 12px;
-    }
-    code, pre {
-      font-family: Consolas, "SFMono-Regular", monospace;
-    }
-    pre {
-      margin: 0;
-      white-space: pre-wrap;
-      word-break: break-word;
-      color: var(--ink);
-      font-size: 0.92rem;
-      line-height: 1.5;
-    }
-    .footer {
-      padding: 0 4px;
-      color: var(--muted);
-      font: 500 13px/1.6 "Trebuchet MS", "Segoe UI", sans-serif;
-    }
-    .hidden {
-      display: none !important;
-    }
-    @media (max-width: 980px) {
-      .layout { grid-template-columns: 1fr; }
-      .metrics { grid-template-columns: repeat(2, 1fr); }
-      .field-row { grid-template-columns: 1fr; }
-      .field-row.equal { grid-template-columns: 1fr; }
-      .summary-grid { grid-template-columns: 1fr; }
-    }
-    @media (max-width: 640px) {
-      .shell { width: min(100vw - 18px, 1220px); margin-top: 12px; }
-      .hero, .card { padding: 20px; border-radius: 22px; }
-      .metrics { grid-template-columns: 1fr 1fr; }
-      .status-grid { grid-template-columns: 1fr; }
+    @media(max-width:480px){
+      .config-grid{grid-template-columns:1fr}
+      .config-row2{grid-template-columns:1fr}
+      .app{padding:12px 12px 32px}
     }
   </style>
 </head>
 <body>
-  <div class="shell">
-    <section class="hero">
-      <div class="eyebrow">CreditMaze Demo Surface</div>
-      <h1>Can an AI agent tell which decision actually mattered?</h1>
-      <p>
-        CreditMaze is a long-horizon benchmark for causal decision attribution. It does not just
-        ask whether an agent reaches the right outcome. It asks whether the agent identifies the
-        step that truly caused success or failure in workflows like research synthesis, debugging,
-        resource allocation, and triage.
-      </p>
-      <div class="hero-grid">
-        <div class="hero-stat"><strong id="heroTaskCount">5</strong><span>Evaluator-facing tasks</span></div>
-        <div class="hero-stat"><strong>PSIA</strong><span>Did the agent credit the right step?</span></div>
-        <div class="hero-stat"><strong>CCE</strong><span>How calibrated was its attribution?</span></div>
-        <div class="hero-stat"><strong>MPCS</strong><span>Can it find multiple jointly causal steps?</span></div>
+<div class="app">
+
+  <!-- NAV -->
+  <nav class="nav fade">
+    <div class="logo">🧭 CreditMaze</div>
+    <span class="badge">Meta RL Hackathon</span>
+    <div class="spacer"></div>
+    <a href="/tasks" class="link">API</a>
+    <a href="/health" class="link">Health</a>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero fade fd1">
+    <h1>Can your agent tell which decision actually mattered?</h1>
+    <p>A benchmark for causal decision attribution in long-horizon AI&nbsp;workflows. Measures whether agents identify the pivotal step — not just whether they succeed.</p>
+    <div class="hero-metrics">
+      <div class="hero-m"><div class="hv" id="heroTaskCount">5</div><div class="hl">Tasks</div></div>
+      <div class="hero-m"><div class="hv">PSIA</div><div class="hl">Step ID Accuracy</div></div>
+      <div class="hero-m"><div class="hv">CCE</div><div class="hl">Calibration Error</div></div>
+      <div class="hero-m"><div class="hv">MPCS</div><div class="hl">Multi-Pivot Score</div></div>
+      <div class="hero-m"><div class="hv">TSR</div><div class="hl">Task Success Rate</div></div>
+    </div>
+  </section>
+
+  <!-- EVALUATION CARD -->
+  <section class="card fade fd2">
+    <h2>Run Evaluation</h2>
+    <div class="sub">Configure and launch a benchmark episode. The agent plays to completion automatically.</div>
+
+    <div class="config-grid">
+      <div class="field"><label for="taskSelect">Task</label><select id="taskSelect"></select></div>
+      <div class="field"><label for="seedInput">Seed</label><input id="seedInput" type="number" value="42"></div>
+      <div class="field"><label for="runMode">Agent Mode</label>
+        <select id="runMode">
+          <option value="auto">Auto (LLM → random fallback)</option>
+          <option value="random">Random baseline</option>
+          <option value="llm">LLM only</option>
+        </select>
       </div>
-    </section>
-
-    <div class="layout">
-      <section class="card">
-        <h2>Agent Evaluation Studio</h2>
-        <p class="muted">
-          Run benchmark episodes the way evaluators would: choose a task, select LLM or random baseline,
-          optionally provide temporary model settings, and let the agent complete the trajectory automatically.
-        </p>
-        <div class="controls">
-          <div class="field-row">
-            <div class="field">
-              <label for="taskSelect">Task</label>
-              <select id="taskSelect"></select>
-            </div>
-            <div class="field">
-              <label for="seedInput">Seed</label>
-              <input id="seedInput" type="number" value="42">
-            </div>
-          </div>
-          <div class="field-row equal">
-            <div class="field">
-              <label for="runMode">Agent Mode</label>
-              <select id="runMode">
-                <option value="auto">LLM if configured, else random fallback</option>
-                <option value="random">Random baseline</option>
-                <option value="llm">LLM only</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="modelInput">Model Name</label>
-              <input id="modelInput" type="text" placeholder="Optional override, e.g. gpt-4o-mini">
-            </div>
-          </div>
-          <div class="field-row equal">
-            <div class="field">
-              <label for="baseUrlInput">API Base URL</label>
-              <input id="baseUrlInput" type="text" placeholder="Optional override, e.g. https://router.huggingface.co/v1">
-            </div>
-            <div class="field">
-              <label for="apiKeyInput">API Key</label>
-              <input id="apiKeyInput" type="password" placeholder="Optional temporary key for this browser session">
-            </div>
-          </div>
-          <div id="modeNote" class="mode-note">
-            Auto mode will use the provided model settings or server-side environment variables. If the
-            model call fails, the run falls back to the random baseline and records that fallback explicitly.
-          </div>
-          <button id="autoRunBtn" class="run-button">Run Agent Evaluation</button>
-          <div class="context-panel">
-            <h3>Episode Snapshot</h3>
-            <pre id="contextText">Select a task and run the agent to see the benchmark context, timeline, and attribution analysis.</pre>
-          </div>
-        </div>
-      </section>
-
-      <section class="stack">
-        <section class="card">
-          <h2>Live Scoreboard</h2>
-          <div class="metrics">
-            <div class="metric"><div class="label">Outcome</div><div class="value" id="metricOutcome">-</div></div>
-            <div class="metric"><div class="label">Reward</div><div class="value" id="metricReward">0.00</div></div>
-            <div class="metric"><div class="label">PSIA</div><div class="value" id="metricPsia">0.00</div></div>
-            <div class="metric"><div class="label">CCE</div><div class="value" id="metricCce">0.50</div></div>
-          </div>
-          <div class="json-panel" style="margin-top:14px;">
-            <h3>Execution Summary</h3>
-            <div id="runModeText" class="summary-grid"></div>
-          </div>
-          <div class="status-grid" style="margin-top:14px;">
-            <div class="json-panel">
-              <h3>Episode Summary</h3>
-              <div id="statusText" class="summary-grid"></div>
-            </div>
-            <div class="json-panel">
-              <h3>Attribution Diagnostics</h3>
-              <div id="graderText" class="summary-grid"></div>
-            </div>
-          </div>
-        </section>
-
-        <section class="card">
-          <h2>Task Catalog</h2>
-          <p class="muted">
-            These are the evaluator-facing benchmark tasks exposed by the Space.
-          </p>
-          <div id="taskList" class="task-list"></div>
-        </section>
-
-        <section class="card">
-          <h2>Episode Timeline</h2>
-          <div id="timeline" class="timeline">
-            <p class="muted">No steps yet.</p>
-          </div>
-        </section>
-      </section>
+      <div class="field"><label for="modelInput">Model</label><input id="modelInput" type="text" placeholder="e.g. gpt-4o-mini"></div>
+    </div>
+    <div class="config-row2">
+      <div class="field"><label for="baseUrlInput">API Base URL</label><input id="baseUrlInput" type="text" placeholder="https://router.huggingface.co/v1"></div>
+      <div class="field"><label for="apiKeyInput">API Key</label><input id="apiKeyInput" type="password" placeholder="Temporary session key"></div>
+      <div class="mode-hint" id="modeNote" style="grid-column:span 2">Auto mode uses the configured LLM when available and falls back to a random baseline if the call fails.</div>
+    </div>
+    <div class="run-row">
+      <button class="btn btn-go" id="autoRunBtn"><span class="spinner" id="runSpinner"></span><span id="runBtnText">Run Agent Evaluation</span></button>
     </div>
 
-    <div class="footer">
-      CreditMaze keeps the benchmark API available at <code>/reset</code>, <code>/step</code>,
-      <code>/state</code>, <code>/tasks</code>, <code>/grader</code>, and <code>/health</code>.
-      This UI is an interactive layer on top of the same evaluation surface used by agents.
+    <!-- LIVE METRICS -->
+    <div class="metrics-row">
+      <div class="m-card"><div class="m-label">Outcome</div><div class="m-val" id="metricOutcome">—</div></div>
+      <div class="m-card"><div class="m-label">Reward</div><div class="m-val" id="metricReward">0.00</div></div>
+      <div class="m-card"><div class="m-label">PSIA</div><div class="m-val" id="metricPsia">0.00</div></div>
+      <div class="m-card"><div class="m-label">CCE</div><div class="m-val" id="metricCce">0.50</div></div>
     </div>
+
+    <!-- TABBED RESULTS -->
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="tabTimeline">Timeline</button>
+      <button class="tab-btn" data-tab="tabSummary">Summary</button>
+      <button class="tab-btn" data-tab="tabAttribution">Attribution</button>
+      <button class="tab-btn" data-tab="tabContext">Context</button>
+    </div>
+
+    <div class="tab-panel active" id="tabTimeline">
+      <div id="timeline"><p class="sub">Run an evaluation to see the step-by-step timeline.</p></div>
+    </div>
+    <div class="tab-panel" id="tabSummary">
+      <div class="sg" id="runModeText"></div>
+      <div class="sg mt12" id="statusText"></div>
+    </div>
+    <div class="tab-panel" id="tabAttribution">
+      <div class="sg" id="graderText"></div>
+    </div>
+    <div class="tab-panel" id="tabContext">
+      <div class="ctx-box"><h3>Episode Snapshot</h3><pre id="contextText">No episode data yet. Run an evaluation to see context.</pre></div>
+    </div>
+  </section>
+
+  <!-- TASK CATALOG -->
+  <section class="card fade fd3 mt20">
+    <h2>Task Catalog</h2>
+    <div class="sub">The benchmark tasks exposed by this Space for evaluators.</div>
+    <div class="task-row" id="taskList"></div>
+  </section>
+
+  <div class="footer">
+    <code>/reset</code> · <code>/step</code> · <code>/state</code> · <code>/tasks</code> · <code>/grader</code> · <code>/health</code>
+    <br>Interactive UI on top of the same evaluation API used by agents.
   </div>
+</div>
 
-  <script>
-    const state = {
-      tasks: [],
-      episodeId: null,
-      done: false,
-      timeline: []
-    };
+<script>
+const state={tasks:[],episodeId:null,done:false,timeline:[]};
+const $=id=>document.getElementById(id);
+const els={
+  taskSelect:$('taskSelect'),seedInput:$('seedInput'),runMode:$('runMode'),
+  modelInput:$('modelInput'),baseUrlInput:$('baseUrlInput'),apiKeyInput:$('apiKeyInput'),
+  modeNote:$('modeNote'),autoRunBtn:$('autoRunBtn'),runSpinner:$('runSpinner'),runBtnText:$('runBtnText'),
+  metricOutcome:$('metricOutcome'),metricReward:$('metricReward'),
+  metricPsia:$('metricPsia'),metricCce:$('metricCce'),
+  runModeText:$('runModeText'),statusText:$('statusText'),graderText:$('graderText'),
+  taskList:$('taskList'),timeline:$('timeline'),contextText:$('contextText'),
+  heroTaskCount:$('heroTaskCount'),
+};
 
-    const els = {
-      taskSelect: document.getElementById('taskSelect'),
-      seedInput: document.getElementById('seedInput'),
-      contextText: document.getElementById('contextText'),
-      runMode: document.getElementById('runMode'),
-      modelInput: document.getElementById('modelInput'),
-      baseUrlInput: document.getElementById('baseUrlInput'),
-      apiKeyInput: document.getElementById('apiKeyInput'),
-      modeNote: document.getElementById('modeNote'),
-      autoRunBtn: document.getElementById('autoRunBtn'),
-      metricOutcome: document.getElementById('metricOutcome'),
-      metricReward: document.getElementById('metricReward'),
-      metricPsia: document.getElementById('metricPsia'),
-      metricCce: document.getElementById('metricCce'),
-      runModeText: document.getElementById('runModeText'),
-      statusText: document.getElementById('statusText'),
-      graderText: document.getElementById('graderText'),
-      taskList: document.getElementById('taskList'),
-      timeline: document.getElementById('timeline'),
-      heroTaskCount: document.getElementById('heroTaskCount'),
-    };
+// tabs
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.tab).classList.add('active');
+  });
+});
 
-    async function api(path, options = {}) {
-      const response = await fetch(path, {
-        headers: { 'Content-Type': 'application/json' },
-        ...options,
-      });
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || ('Request failed: ' + response.status));
-      }
-      return response.json();
-    }
-
-    function summaryMarkup(entries) {
-      if (!entries || !entries.length) {
-        return '<p class="muted">Nothing to show yet.</p>';
-      }
-      return entries.map(([key, val]) => `
-        <div class="summary-item">
-          <span class="key">${key}</span>
-          <span class="val">${val ?? '-'}</span>
-        </div>
-      `).join('');
-    }
-
-    function renderTaskCatalog() {
-      els.taskList.innerHTML = '';
-      els.heroTaskCount.textContent = String(state.tasks.length || 0);
-      state.tasks.forEach((task, idx) => {
-        const div = document.createElement('div');
-        div.className = 'task';
-        div.innerHTML = `
-          <div class="task-top">
-            <strong>${task.id}</strong>
-            <span class="pill ${idx % 3 === 1 ? 'alt' : idx % 3 === 2 ? 'blue' : ''}">${task.difficulty}</span>
-          </div>
-          <div class="muted">max_steps=${task.max_steps}</div>
-          <p style="margin:10px 0 0;">${task.grader?.prompt_template || 'No grader metadata available.'}</p>
-        `;
-        els.taskList.appendChild(div);
-      });
-    }
-
-    function syncRunButtons(busy) {
-      els.autoRunBtn.disabled = busy;
-    }
-
-    function renderRunSummary(payload) {
-      els.runModeText.innerHTML = summaryMarkup([
-        ['Requested Mode', els.runMode.value],
-        ['Mode Used', payload?.mode_used || '-'],
-        ['Model Label', payload?.model_label || 'random-baseline'],
-        ['Used Fallback', payload ? String(!!payload.used_fallback) : '-'],
-        ['Fallback Reason', payload?.fallback_reason || 'none'],
-        ['Episode Score', payload?.score != null ? Number(payload.score).toFixed(3) : '-'],
-      ]);
-    }
-
-    function renderEpisodeSummary(payload) {
-      els.statusText.innerHTML = summaryMarkup([
-        ['Episode ID', payload?.episode_id || '-'],
-        ['Task', payload?.task_id || els.taskSelect.value || '-'],
-        ['Outcome', payload?.outcome || '-'],
-        ['Raw Reward', payload?.raw_reward != null ? Number(payload.raw_reward).toFixed(3) : '-'],
-        ['Steps', payload?.steps ? payload.steps.length : '-'],
-        ['Final Context', payload?.final_context ? payload.final_context.slice(0, 130) + (payload.final_context.length > 130 ? '...' : '') : '-'],
-      ]);
-    }
-
-    function renderGraderSummary(grader) {
-      if (!grader) {
-        els.graderText.innerHTML = '<p class="muted">Run an evaluation to inspect attribution quality.</p>';
-        return;
-      }
-      els.graderText.innerHTML = summaryMarkup([
-        ['Top Step', grader.top_attributed_step ?? '-'],
-        ['Top Action', grader.top_attributed_action ?? '-'],
-        ['Pivotal Rank', grader.pivotal_step_rank ?? '-'],
-        ['Attribution Gap', grader.attribution_gap ?? '-'],
-        ['False Positives', grader.false_positive_steps?.length ? grader.false_positive_steps.join(', ') : 'none'],
-        ['Success With Wrong Attribution', String(!!grader.success_with_wrong_attribution)],
-      ]);
-    }
-
-    function updateModeUI() {
-      const mode = els.runMode.value;
-      const randomMode = mode === 'random';
-      els.modelInput.disabled = randomMode;
-      els.baseUrlInput.disabled = randomMode;
-      els.apiKeyInput.disabled = randomMode;
-      if (randomMode) {
-        els.modeNote.textContent = 'Random baseline mode ignores model settings and runs a valid-action baseline for a clean fallback test.';
-      } else if (mode === 'llm') {
-        els.modeNote.textContent = 'LLM-only mode requires a valid API key either in the form or in the Space environment. If credentials are missing, the run fails instead of falling back.';
-      } else {
-        els.modeNote.textContent = 'Auto mode uses the configured LLM when available and falls back to the random baseline if the call fails or no credentials are present.';
-      }
-    }
-
-    function renderTimeline() {
-      if (!state.timeline.length) {
-        els.timeline.innerHTML = '<p class="muted">No steps yet.</p>';
-        return;
-      }
-      els.timeline.innerHTML = '';
-      state.timeline.forEach(item => {
-        const div = document.createElement('div');
-        div.className = 'timeline-item' + (item.done && item.reward === 0 ? ' fail' : '');
-        div.innerHTML = `
-          <div class="timeline-meta">Step ${item.step}</div>
-          <strong>${item.action}</strong>
-          <p class="muted" style="margin:8px 0 4px;">reward=${item.reward.toFixed(2)} | done=${String(item.done)} | error=${item.error || 'null'}</p>
-          <p style="margin:0;">${item.contextSnippet}</p>
-        `;
-        els.timeline.appendChild(div);
-      });
-    }
-
-    async function loadTasks() {
-      const payload = await api('/tasks');
-      state.tasks = payload.tasks || [];
-      els.taskSelect.innerHTML = '';
-      state.tasks.forEach(task => {
-        const opt = document.createElement('option');
-        opt.value = task.id;
-        opt.textContent = task.id;
-        els.taskSelect.appendChild(opt);
-      });
-      renderTaskCatalog();
-    }
-
-    async function autoRunEpisode() {
-      syncRunButtons(true);
-      try {
-        const payload = await api('/demo/run', {
-          method: 'POST',
-          body: JSON.stringify({
-            task_id: els.taskSelect.value,
-            seed: Number(els.seedInput.value || 42),
-            mode: els.runMode.value,
-            model_name: els.modelInput.value || null,
-            api_base_url: els.baseUrlInput.value || null,
-            api_key: els.apiKeyInput.value || null,
-          }),
-        });
-        state.timeline = (payload.steps || []).map(item => ({
-          step: item.step,
-          action: item.action,
-          reward: item.reward,
-          done: item.done,
-          error: item.error,
-          contextSnippet: item.context_snippet || '',
-        }));
-        state.done = true;
-        state.episodeId = payload.episode_id;
-        els.metricOutcome.textContent = payload.outcome || '-';
-        els.metricReward.textContent = Number(payload.raw_reward || 0).toFixed(2);
-        els.metricPsia.textContent = Number(payload.session_psia || 0).toFixed(2);
-        els.metricCce.textContent = Number(payload.session_cce || 0.5).toFixed(2);
-        els.contextText.textContent = payload.final_context || 'Episode complete.';
-        renderEpisodeSummary(payload);
-        renderGraderSummary(payload.grader);
-        renderRunSummary(payload);
-        renderTimeline();
-      } catch (err) {
-        els.runModeText.innerHTML = summaryMarkup([
-          ['Requested Mode', els.runMode.value],
-          ['Result', 'Evaluation failed'],
-          ['Error', err.message],
-        ]);
-      } finally {
-        syncRunButtons(false);
-      }
-    }
-
-    els.autoRunBtn.addEventListener('click', autoRunEpisode);
-    els.runMode.addEventListener('change', updateModeUI);
-
-    loadTasks().catch(err => {
-      els.statusText.innerHTML = summaryMarkup([
-        ['Status', 'Failed to load task catalog'],
-        ['Error', err.message],
-      ]);
-    });
-    updateModeUI();
-    renderRunSummary(null);
-    renderEpisodeSummary(null);
-    renderGraderSummary(null);
-  </script>
+async function api(path,opts={}){
+  const r=await fetch(path,{headers:{'Content-Type':'application/json'},...opts});
+  if(!r.ok){const t=await r.text();throw new Error(t||'Request failed: '+r.status)}
+  return r.json();
+}
+function sg(entries){
+  if(!entries||!entries.length)return'<p class="sub">Nothing yet.</p>';
+  return entries.map(([k,v])=>'<div class="sg-item"><div class="sg-k">'+k+'</div><div class="sg-v">'+(v??'—')+'</div></div>').join('');
+}
+function pillClass(d){
+  if(!d)return'pill-easy';const l=d.toLowerCase();
+  return l==='easy'?'pill-easy':l==='medium'?'pill-medium':'pill-hard';
+}
+function renderCatalog(){
+  els.taskList.innerHTML='';
+  els.heroTaskCount.textContent=String(state.tasks.length||0);
+  state.tasks.forEach(t=>{
+    const d=document.createElement('div');d.className='t-card';
+    d.innerHTML='<div class="t-top"><span class="t-name">'+t.id+'</span><span class="pill '+pillClass(t.difficulty)+'">'+t.difficulty+'</span></div>'
+      +'<div class="t-meta">max_steps = '+t.max_steps+'</div>'
+      +'<div class="t-desc">'+(t.grader?.prompt_template||'')+'</div>';
+    els.taskList.appendChild(d);
+  });
+}
+function syncBtns(busy){
+  els.autoRunBtn.disabled=busy;
+  els.runSpinner.className=busy?'spinner on':'spinner';
+  els.runBtnText.textContent=busy?'Running…':'Run Agent Evaluation';
+}
+function renderRunSummary(p){
+  els.runModeText.innerHTML=sg([
+    ['Requested Mode',els.runMode.value],['Mode Used',p?.mode_used||'—'],
+    ['Model',p?.model_label||'random-baseline'],['Fallback',p?String(!!p.used_fallback):'—'],
+    ['Fallback Reason',p?.fallback_reason||'none'],['Score',p?.score!=null?Number(p.score).toFixed(3):'—'],
+  ]);
+}
+function renderEpisodeSummary(p){
+  els.statusText.innerHTML=sg([
+    ['Episode ID',p?.episode_id||'—'],['Task',p?.task_id||els.taskSelect.value||'—'],
+    ['Outcome',p?.outcome||'—'],['Raw Reward',p?.raw_reward!=null?Number(p.raw_reward).toFixed(3):'—'],
+    ['Steps',p?.steps?p.steps.length:'—'],
+  ]);
+}
+function renderGrader(g){
+  if(!g){els.graderText.innerHTML='<p class="sub">Run an evaluation to see attribution diagnostics.</p>';return}
+  els.graderText.innerHTML=sg([
+    ['Top Step',g.top_attributed_step??'—'],['Top Action',g.top_attributed_action??'—'],
+    ['Pivotal Rank',g.pivotal_step_rank??'—'],['Attribution Gap',g.attribution_gap??'—'],
+    ['False Positives',g.false_positive_steps?.length?g.false_positive_steps.join(', '):'none'],
+    ['Wrong Attribution',String(!!g.success_with_wrong_attribution)],
+  ]);
+}
+function updateMode(){
+  const m=els.runMode.value,r=m==='random';
+  els.modelInput.disabled=r;els.baseUrlInput.disabled=r;els.apiKeyInput.disabled=r;
+  els.modeNote.textContent=r?'Random baseline mode ignores model settings.':m==='llm'?'LLM-only mode requires a valid API key. Fails instead of falling back.':'Auto mode uses the configured LLM when available and falls back to a random baseline if the call fails.';
+}
+function renderTimeline(){
+  if(!state.timeline.length){els.timeline.innerHTML='<p class="sub">Run an evaluation to see the step-by-step timeline.</p>';return}
+  els.timeline.innerHTML='';
+  state.timeline.forEach(it=>{
+    const fail=it.done&&it.reward===0;
+    const d=document.createElement('div');d.className='tl-item';
+    d.innerHTML='<div class="tl-dot-col"><div class="tl-dot'+(fail?' fail':'')+'"></div><div class="tl-line"></div></div>'
+      +'<div class="tl-body"><div class="tl-head"><span class="tl-step">Step '+it.step+'</span>'
+      +'<span class="tl-act">'+it.action+'</span>'
+      +'<span class="tl-rw '+(it.reward>0?'pos':'zero')+'">'+it.reward.toFixed(2)+'</span></div>'
+      +'<div class="tl-ctx">'+it.contextSnippet+'</div></div>';
+    els.timeline.appendChild(d);
+  });
+}
+async function loadTasks(){
+  const p=await api('/tasks');state.tasks=p.tasks||[];
+  els.taskSelect.innerHTML='';
+  state.tasks.forEach(t=>{const o=document.createElement('option');o.value=t.id;o.textContent=t.id;els.taskSelect.appendChild(o)});
+  renderCatalog();
+}
+async function runEval(){
+  syncBtns(true);
+  try{
+    const p=await api('/demo/run',{method:'POST',body:JSON.stringify({
+      task_id:els.taskSelect.value,seed:Number(els.seedInput.value||42),mode:els.runMode.value,
+      model_name:els.modelInput.value||null,api_base_url:els.baseUrlInput.value||null,api_key:els.apiKeyInput.value||null,
+    })});
+    state.timeline=(p.steps||[]).map(s=>({step:s.step,action:s.action,reward:s.reward,done:s.done,error:s.error,contextSnippet:s.context_snippet||''}));
+    state.done=true;state.episodeId=p.episode_id;
+    const o=els.metricOutcome;o.textContent=p.outcome||'—';
+    o.className='m-val'+(p.outcome==='success'?' ok':p.outcome==='failure'?' err':'');
+    els.metricReward.textContent=Number(p.raw_reward||0).toFixed(2);
+    els.metricPsia.textContent=Number(p.session_psia||0).toFixed(2);
+    els.metricCce.textContent=Number(p.session_cce||0.5).toFixed(2);
+    els.contextText.textContent=p.final_context||'Episode complete.';
+    renderEpisodeSummary(p);renderGrader(p.grader);renderRunSummary(p);renderTimeline();
+    // auto-flip to timeline tab
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p2=>p2.classList.remove('active'));
+    document.querySelector('[data-tab="tabTimeline"]').classList.add('active');
+    document.getElementById('tabTimeline').classList.add('active');
+  }catch(err){
+    els.runModeText.innerHTML=sg([['Requested Mode',els.runMode.value],['Result','Failed'],['Error',err.message]]);
+  }finally{syncBtns(false)}
+}
+els.autoRunBtn.addEventListener('click',runEval);
+els.runMode.addEventListener('change',updateMode);
+loadTasks().catch(err=>{els.statusText.innerHTML=sg([['Status','Failed to load tasks'],['Error',err.message]])});
+updateMode();renderRunSummary(null);renderEpisodeSummary(null);renderGrader(null);
+</script>
 </body>
-</html>"""
+</html>
+"""
 
 
 def _make_demo_client(req: DemoRunRequest) -> tuple[Optional[OpenAI], str, Optional[str], str]:
