@@ -247,6 +247,9 @@ def _homepage_html() -> str:
       grid-template-columns: 1fr 130px;
       gap: 12px;
     }
+    .field-row.equal {
+      grid-template-columns: 1fr 1fr;
+    }
     select, input, textarea, button {
       width: 100%;
       border: 1px solid rgba(23,34,56,0.12);
@@ -256,10 +259,6 @@ def _homepage_html() -> str:
       padding: 13px 14px;
       font-size: 0.98rem;
       font-family: "Trebuchet MS", "Segoe UI", sans-serif;
-    }
-    textarea {
-      min-height: 90px;
-      resize: vertical;
     }
     button {
       cursor: pointer;
@@ -278,28 +277,6 @@ def _homepage_html() -> str:
     }
     button:hover { transform: translateY(-1px); }
     button:disabled { opacity: 0.58; cursor: not-allowed; transform: none; }
-    .actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-top: 14px;
-    }
-    .action-chip {
-      border-radius: 999px;
-      padding: 10px 14px;
-      border: 1px solid rgba(29,78,216,0.16);
-      background: rgba(29,78,216,0.08);
-      color: var(--ink);
-      font: 700 14px/1 "Trebuchet MS", "Segoe UI", sans-serif;
-      cursor: pointer;
-      transition: all .18s ease;
-    }
-    .action-chip.active {
-      background: linear-gradient(135deg, rgba(15,118,110,0.92), rgba(29,78,216,0.92));
-      color: #fff;
-      border-color: transparent;
-      box-shadow: 0 12px 22px rgba(29,78,216,0.18);
-    }
     .context-panel, .timeline, .json-panel {
       border-radius: 18px;
       padding: 18px;
@@ -338,6 +315,42 @@ def _homepage_html() -> str:
       color: var(--muted);
       margin-bottom: 6px;
     }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .summary-item {
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.6);
+      padding: 12px 13px;
+    }
+    .summary-item .key {
+      display: block;
+      font: 700 11px/1 "Trebuchet MS", "Segoe UI", sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .summary-item .val {
+      font: 700 15px/1.35 "Trebuchet MS", "Segoe UI", sans-serif;
+      color: var(--ink);
+      word-break: break-word;
+    }
+    .mode-note {
+      border-radius: 16px;
+      padding: 14px 16px;
+      background: linear-gradient(135deg, rgba(15,118,110,0.10), rgba(29,78,216,0.08));
+      border: 1px solid rgba(29,78,216,0.12);
+      color: var(--muted);
+      font: 600 14px/1.6 "Trebuchet MS", "Segoe UI", sans-serif;
+    }
+    .run-button {
+      font-size: 1rem;
+      padding-block: 15px;
+    }
     .status-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -359,10 +372,15 @@ def _homepage_html() -> str:
       color: var(--muted);
       font: 500 13px/1.6 "Trebuchet MS", "Segoe UI", sans-serif;
     }
+    .hidden {
+      display: none !important;
+    }
     @media (max-width: 980px) {
       .layout { grid-template-columns: 1fr; }
       .metrics { grid-template-columns: repeat(2, 1fr); }
       .field-row { grid-template-columns: 1fr; }
+      .field-row.equal { grid-template-columns: 1fr; }
+      .summary-grid { grid-template-columns: 1fr; }
     }
     @media (max-width: 640px) {
       .shell { width: min(100vw - 18px, 1220px); margin-top: 12px; }
@@ -393,10 +411,10 @@ def _homepage_html() -> str:
 
     <div class="layout">
       <section class="card">
-        <h2>Interactive Episode Lab</h2>
+        <h2>Agent Evaluation Studio</h2>
         <p class="muted">
-          Launch a benchmark episode, inspect the live context, choose actions, and see how the
-          environment distinguishes local progress from the truly pivotal step.
+          Run benchmark episodes the way evaluators would: choose a task, select LLM or random baseline,
+          optionally provide temporary model settings, and let the agent complete the trajectory automatically.
         </p>
         <div class="controls">
           <div class="field-row">
@@ -409,13 +427,13 @@ def _homepage_html() -> str:
               <input id="seedInput" type="number" value="42">
             </div>
           </div>
-          <div class="field-row">
+          <div class="field-row equal">
             <div class="field">
               <label for="runMode">Agent Mode</label>
               <select id="runMode">
                 <option value="auto">LLM if configured, else random fallback</option>
-                <option value="llm">Force LLM</option>
                 <option value="random">Random baseline</option>
+                <option value="llm">LLM only</option>
               </select>
             </div>
             <div class="field">
@@ -423,7 +441,7 @@ def _homepage_html() -> str:
               <input id="modelInput" type="text" placeholder="Optional override, e.g. gpt-4o-mini">
             </div>
           </div>
-          <div class="field-row">
+          <div class="field-row equal">
             <div class="field">
               <label for="baseUrlInput">API Base URL</label>
               <input id="baseUrlInput" type="text" placeholder="Optional override, e.g. https://router.huggingface.co/v1">
@@ -433,29 +451,15 @@ def _homepage_html() -> str:
               <input id="apiKeyInput" type="password" placeholder="Optional temporary key for this browser session">
             </div>
           </div>
-          <div class="hint">Use server-side environment variables, or paste temporary values here to test an LLM path. If the model call fails and mode is <code>auto</code>, the demo falls back to random actions.</div>
-          <div class="field-row">
-            <button id="resetBtn">Start Episode</button>
-            <button id="graderBtn" class="secondary" disabled>Run Grader</button>
+          <div id="modeNote" class="mode-note">
+            Auto mode will use the provided model settings or server-side environment variables. If the
+            model call fails, the run falls back to the random baseline and records that fallback explicitly.
           </div>
-          <button id="autoRunBtn" class="secondary">Run Agent Automatically</button>
+          <button id="autoRunBtn" class="run-button">Run Agent Evaluation</button>
           <div class="context-panel">
-            <h3>Current Context</h3>
-            <pre id="contextText">Start an episode to load the benchmark state.</pre>
+            <h3>Episode Snapshot</h3>
+            <pre id="contextText">Select a task and run the agent to see the benchmark context, timeline, and attribution analysis.</pre>
           </div>
-          <div class="field">
-            <label for="reasoningInput">Reasoning Note</label>
-            <textarea id="reasoningInput" placeholder="Optional note for this step."></textarea>
-          </div>
-          <div class="field">
-            <label for="creditInput">Credit Estimate</label>
-            <input id="creditInput" type="number" min="0" max="1" step="0.01" value="0.50">
-          </div>
-          <div>
-            <div class="hint">Available Actions</div>
-            <div id="actionChips" class="actions"></div>
-          </div>
-          <button id="stepBtn" disabled>Submit Step</button>
         </div>
       </section>
 
@@ -469,17 +473,17 @@ def _homepage_html() -> str:
             <div class="metric"><div class="label">CCE</div><div class="value" id="metricCce">0.50</div></div>
           </div>
           <div class="json-panel" style="margin-top:14px;">
-            <h3>Execution Mode</h3>
-            <pre id="runModeText">Manual interaction. Use "Run Agent Automatically" to test an LLM or random fallback.</pre>
+            <h3>Execution Summary</h3>
+            <div id="runModeText" class="summary-grid"></div>
           </div>
           <div class="status-grid" style="margin-top:14px;">
             <div class="json-panel">
-              <h3>Episode Status</h3>
-              <pre id="statusText">No episode loaded.</pre>
+              <h3>Episode Summary</h3>
+              <div id="statusText" class="summary-grid"></div>
             </div>
             <div class="json-panel">
               <h3>Attribution Diagnostics</h3>
-              <pre id="graderText">Run the grader after the episode completes to inspect attribution quality.</pre>
+              <div id="graderText" class="summary-grid"></div>
             </div>
           </div>
         </section>
@@ -512,27 +516,20 @@ def _homepage_html() -> str:
     const state = {
       tasks: [],
       episodeId: null,
-      selectedAction: null,
       done: false,
-      lastObservation: null,
       timeline: []
     };
 
     const els = {
       taskSelect: document.getElementById('taskSelect'),
       seedInput: document.getElementById('seedInput'),
-      resetBtn: document.getElementById('resetBtn'),
-      graderBtn: document.getElementById('graderBtn'),
       contextText: document.getElementById('contextText'),
-      reasoningInput: document.getElementById('reasoningInput'),
-      creditInput: document.getElementById('creditInput'),
       runMode: document.getElementById('runMode'),
       modelInput: document.getElementById('modelInput'),
       baseUrlInput: document.getElementById('baseUrlInput'),
       apiKeyInput: document.getElementById('apiKeyInput'),
+      modeNote: document.getElementById('modeNote'),
       autoRunBtn: document.getElementById('autoRunBtn'),
-      actionChips: document.getElementById('actionChips'),
-      stepBtn: document.getElementById('stepBtn'),
       metricOutcome: document.getElementById('metricOutcome'),
       metricReward: document.getElementById('metricReward'),
       metricPsia: document.getElementById('metricPsia'),
@@ -557,6 +554,18 @@ def _homepage_html() -> str:
       return response.json();
     }
 
+    function summaryMarkup(entries) {
+      if (!entries || !entries.length) {
+        return '<p class="muted">Nothing to show yet.</p>';
+      }
+      return entries.map(([key, val]) => `
+        <div class="summary-item">
+          <span class="key">${key}</span>
+          <span class="val">${val ?? '-'}</span>
+        </div>
+      `).join('');
+    }
+
     function renderTaskCatalog() {
       els.taskList.innerHTML = '';
       els.heroTaskCount.textContent = String(state.tasks.length || 0);
@@ -575,43 +584,60 @@ def _homepage_html() -> str:
       });
     }
 
-    function renderActionChips(actions = []) {
-      els.actionChips.innerHTML = '';
-      state.selectedAction = actions[0] || null;
-      actions.forEach((action, idx) => {
-        const chip = document.createElement('button');
-        chip.type = 'button';
-        chip.className = 'action-chip' + (idx === 0 ? ' active' : '');
-        chip.textContent = action;
-        chip.onclick = () => {
-          state.selectedAction = action;
-          [...els.actionChips.children].forEach(node => node.classList.toggle('active', node === chip));
-        };
-        els.actionChips.appendChild(chip);
-      });
-      els.stepBtn.disabled = !(state.episodeId && state.selectedAction && !state.done);
-    }
-
-    function renderObservation(obs) {
-      state.lastObservation = obs;
-      els.contextText.textContent = obs.context || 'No context available.';
-      renderActionChips(obs.available_actions || []);
-      els.metricOutcome.textContent = obs.episode_outcome || 'in_progress';
-      els.statusText.textContent = JSON.stringify({
-        episode_id: obs.episode_id,
-        domain: obs.domain,
-        tier: obs.tier,
-        step_count: obs.step_count,
-        max_steps: obs.max_steps,
-        cumulative_reward: obs.cumulative_reward,
-        episode_outcome: obs.episode_outcome,
-      }, null, 2);
-    }
-
     function syncRunButtons(busy) {
-      els.resetBtn.disabled = busy;
-      els.stepBtn.disabled = busy || !(state.episodeId && state.selectedAction && !state.done);
       els.autoRunBtn.disabled = busy;
+    }
+
+    function renderRunSummary(payload) {
+      els.runModeText.innerHTML = summaryMarkup([
+        ['Requested Mode', els.runMode.value],
+        ['Mode Used', payload?.mode_used || '-'],
+        ['Model Label', payload?.model_label || 'random-baseline'],
+        ['Used Fallback', payload ? String(!!payload.used_fallback) : '-'],
+        ['Fallback Reason', payload?.fallback_reason || 'none'],
+        ['Episode Score', payload?.score != null ? Number(payload.score).toFixed(3) : '-'],
+      ]);
+    }
+
+    function renderEpisodeSummary(payload) {
+      els.statusText.innerHTML = summaryMarkup([
+        ['Episode ID', payload?.episode_id || '-'],
+        ['Task', payload?.task_id || els.taskSelect.value || '-'],
+        ['Outcome', payload?.outcome || '-'],
+        ['Raw Reward', payload?.raw_reward != null ? Number(payload.raw_reward).toFixed(3) : '-'],
+        ['Steps', payload?.steps ? payload.steps.length : '-'],
+        ['Final Context', payload?.final_context ? payload.final_context.slice(0, 130) + (payload.final_context.length > 130 ? '...' : '') : '-'],
+      ]);
+    }
+
+    function renderGraderSummary(grader) {
+      if (!grader) {
+        els.graderText.innerHTML = '<p class="muted">Run an evaluation to inspect attribution quality.</p>';
+        return;
+      }
+      els.graderText.innerHTML = summaryMarkup([
+        ['Top Step', grader.top_attributed_step ?? '-'],
+        ['Top Action', grader.top_attributed_action ?? '-'],
+        ['Pivotal Rank', grader.pivotal_step_rank ?? '-'],
+        ['Attribution Gap', grader.attribution_gap ?? '-'],
+        ['False Positives', grader.false_positive_steps?.length ? grader.false_positive_steps.join(', ') : 'none'],
+        ['Success With Wrong Attribution', String(!!grader.success_with_wrong_attribution)],
+      ]);
+    }
+
+    function updateModeUI() {
+      const mode = els.runMode.value;
+      const randomMode = mode === 'random';
+      els.modelInput.disabled = randomMode;
+      els.baseUrlInput.disabled = randomMode;
+      els.apiKeyInput.disabled = randomMode;
+      if (randomMode) {
+        els.modeNote.textContent = 'Random baseline mode ignores model settings and runs a valid-action baseline for a clean fallback test.';
+      } else if (mode === 'llm') {
+        els.modeNote.textContent = 'LLM-only mode requires a valid API key either in the form or in the Space environment. If credentials are missing, the run fails instead of falling back.';
+      } else {
+        els.modeNote.textContent = 'Auto mode uses the configured LLM when available and falls back to the random baseline if the call fails or no credentials are present.';
+      }
     }
 
     function renderTimeline() {
@@ -646,68 +672,6 @@ def _homepage_html() -> str:
       renderTaskCatalog();
     }
 
-    async function startEpisode() {
-      const taskId = els.taskSelect.value;
-      const task = state.tasks.find(t => t.id === taskId);
-      if (!task) return;
-
-      const mappings = {
-        task_easy: { tier: 'easy', domain: 'corridor' },
-        task_medium: { tier: 'medium', domain: 'research' },
-        task_hard: { tier: 'hard', domain: 'debugging' },
-        resource_hard: { tier: 'hard', domain: 'resource' },
-        triage_multipivot: { tier: 'multi-pivot', domain: 'triage' },
-      };
-      const cfg = mappings[taskId] || { tier: task.difficulty, domain: null };
-      const obs = await api('/reset', {
-        method: 'POST',
-        body: JSON.stringify({ ...cfg, seed: Number(els.seedInput.value || 42) }),
-      });
-      state.episodeId = obs.episode_id;
-      state.done = false;
-      state.timeline = [];
-      els.metricReward.textContent = '0.00';
-      els.metricPsia.textContent = '0.00';
-      els.metricCce.textContent = '0.50';
-      els.graderText.textContent = 'Run the grader after the episode completes to inspect attribution quality.';
-      els.reasoningInput.value = '';
-      els.creditInput.value = '0.50';
-      els.graderBtn.disabled = true;
-      els.runModeText.textContent = 'Manual interaction. Current mode: browser-driven step selection.';
-      renderObservation(obs);
-      renderTimeline();
-    }
-
-    async function submitStep() {
-      if (!state.episodeId || !state.selectedAction || state.done) return;
-      const result = await api('/step', {
-        method: 'POST',
-        body: JSON.stringify({
-          episode_id: state.episodeId,
-          action_id: state.selectedAction,
-          reasoning: els.reasoningInput.value || null,
-          credit_estimate: Number(els.creditInput.value || 0.5),
-        }),
-      });
-      const obs = result.observation;
-      state.done = !!result.done;
-      state.timeline.push({
-        step: obs.step_count,
-        action: state.selectedAction,
-        reward: result.reward || 0,
-        done: !!result.done,
-        error: null,
-        contextSnippet: (obs.context || '').slice(0, 170) + ((obs.context || '').length > 170 ? '...' : ''),
-      });
-      els.metricReward.textContent = Number(obs.cumulative_reward || 0).toFixed(2);
-      els.metricPsia.textContent = Number(result.info?.psia_running || 0).toFixed(2);
-      els.metricCce.textContent = Number(result.info?.cce_running || 0.5).toFixed(2);
-      renderObservation(obs);
-      renderTimeline();
-      els.graderBtn.disabled = !state.done;
-      els.stepBtn.disabled = state.done;
-    }
-
     async function autoRunEpisode() {
       syncRunButtons(true);
       try {
@@ -737,53 +701,34 @@ def _homepage_html() -> str:
         els.metricPsia.textContent = Number(payload.session_psia || 0).toFixed(2);
         els.metricCce.textContent = Number(payload.session_cce || 0.5).toFixed(2);
         els.contextText.textContent = payload.final_context || 'Episode complete.';
-        els.statusText.textContent = JSON.stringify({
-          episode_id: payload.episode_id,
-          task_id: payload.task_id,
-          mode_used: payload.mode_used,
-          model_label: payload.model_label,
-          outcome: payload.outcome,
-          raw_reward: payload.raw_reward,
-          score: payload.score,
-        }, null, 2);
-        els.graderText.textContent = JSON.stringify(payload.grader, null, 2);
-        els.runModeText.textContent = JSON.stringify({
-          requested_mode: els.runMode.value,
-          mode_used: payload.mode_used,
-          model_label: payload.model_label,
-          used_fallback: payload.used_fallback,
-          fallback_reason: payload.fallback_reason,
-        }, null, 2);
-        renderActionChips([]);
+        renderEpisodeSummary(payload);
+        renderGraderSummary(payload.grader);
+        renderRunSummary(payload);
         renderTimeline();
-        els.graderBtn.disabled = false;
       } catch (err) {
-        els.runModeText.textContent = 'Automatic run failed: ' + err.message;
+        els.runModeText.innerHTML = summaryMarkup([
+          ['Requested Mode', els.runMode.value],
+          ['Result', 'Evaluation failed'],
+          ['Error', err.message],
+        ]);
       } finally {
         syncRunButtons(false);
       }
     }
 
-    async function runGrader() {
-      if (!state.episodeId || !state.done) return;
-      const result = await api('/grader', {
-        method: 'POST',
-        body: JSON.stringify({ episode_id: state.episodeId }),
-      });
-      els.graderText.textContent = JSON.stringify(result, null, 2);
-      els.metricOutcome.textContent = result.outcome || '-';
-      els.metricPsia.textContent = Number(result.session_psia || 0).toFixed(2);
-      els.metricCce.textContent = Number(result.session_cce || 0.5).toFixed(2);
-    }
-
-    els.resetBtn.addEventListener('click', startEpisode);
-    els.stepBtn.addEventListener('click', submitStep);
-    els.graderBtn.addEventListener('click', runGrader);
     els.autoRunBtn.addEventListener('click', autoRunEpisode);
+    els.runMode.addEventListener('change', updateModeUI);
 
     loadTasks().catch(err => {
-      els.statusText.textContent = 'Failed to load task catalog: ' + err.message;
+      els.statusText.innerHTML = summaryMarkup([
+        ['Status', 'Failed to load task catalog'],
+        ['Error', err.message],
+      ]);
     });
+    updateModeUI();
+    renderRunSummary(null);
+    renderEpisodeSummary(null);
+    renderGraderSummary(null);
   </script>
 </body>
 </html>"""
