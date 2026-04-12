@@ -1,7 +1,14 @@
 """
 CreditMaze — Session Metrics
 Computes PSIA, CCE, TSR, and MPCS across all episodes in a session.
-These are the three novel metrics CreditMaze introduces to the field.
+
+PSIA  — Pivotal Step Identification Accuracy
+CCE   — Credit Calibration Error
+TSR   — Task Success Rate
+MPCS  — Multi-Pivot Coordination Score (multi-pivot tier only)
+
+Primary credit signal is RETROSPECTIVE: agent assigns credit after seeing
+full trajectory + outcome. Forward per-step guesses are a fallback only.
 """
 from __future__ import annotations
 from typing import List, Dict, Optional, Tuple, TYPE_CHECKING
@@ -12,14 +19,6 @@ if TYPE_CHECKING:
 
 
 class SessionMetrics:
-    """
-    Accumulates per-episode credit assignment quality metrics.
-
-    PSIA  — Pivotal Step Identification Accuracy
-    CCE   — Credit Calibration Error
-    TSR   — Task Success Rate
-    MPCS  — Multi-Pivot Coordination Score (Tier 4)
-    """
 
     def __init__(self):
         self._psia:  List[float] = []
@@ -27,6 +26,7 @@ class SessionMetrics:
         self._tsr:   List[float] = []
         self._mpcs:  List[float] = []
         self.n_complete: int = 0
+        self._last_metrics: dict = {}
 
     # ── Record one completed episode ──────────────────────────────────────────
 
@@ -37,42 +37,83 @@ class SessionMetrics:
         gt_labels: Dict[int, float],
         outcome: str,
     ) -> dict:
-        """
-        Record metrics for one completed episode.
-        Returns dict of per-episode metric values.
-        """
-        n_pivot    = len(episode.pivotal_indices)
-        pivot_set  = set(episode.pivotal_indices)
-        n_steps    = len(step_history)
+        result = self._compute(episode, step_history, gt_labels, outcome)
+        self._psia.append(result["psia"])
+        self._cce.append(result["cce"])
+        self._tsr.append(result["tsr"])
+        if result["mpcs"] is not None:
+            self._mpcs.append(result["mpcs"])
+        self.n_complete += 1
+        self._last_metrics = result
+        return result
 
-        # ── TSR ──────────────────────────────────────────────────────────────
+    def replace_last(
+        self,
+        episode: "Episode",
+        step_history: List[Tuple[str, Optional[float]]],
+        gt_labels: Dict[int, float],
+        outcome: str,
+    ) -> dict:
+        """
+        Replace the most recently recorded episode's metrics with recomputed
+        values using retrospective credits. Called after submit_retrospective_credits().
+        """
+        if not self._psia:
+            return self.record(episode, step_history, gt_labels, outcome)
+
+        result = self._compute(episode, step_history, gt_labels, outcome)
+
+        # Replace last entry in all lists
+        self._psia[-1] = result["psia"]
+        self._cce[-1]  = result["cce"]
+        self._tsr[-1]  = result["tsr"]
+
+        n_pivot = len(episode.pivotal_indices)
+        if n_pivot > 1:
+            if self._mpcs:
+                self._mpcs[-1] = result["mpcs"] if result["mpcs"] is not None else self._mpcs[-1]
+            elif result["mpcs"] is not None:
+                self._mpcs.append(result["mpcs"])
+
+        self._last_metrics = result
+        return result
+
+    @property
+    def last_episode_metrics(self) -> dict:
+        return self._last_metrics
+
+    # ── Core computation ──────────────────────────────────────────────────────
+
+    def _compute(
+        self,
+        episode: "Episode",
+        step_history: List[Tuple[str, Optional[float]]],
+        gt_labels: Dict[int, float],
+        outcome: str,
+    ) -> dict:
+        n_pivot   = len(episode.pivotal_indices)
+        pivot_set = set(episode.pivotal_indices)
+        n_steps   = len(step_history)
+
+        # TSR
         tsr = 1.0 if outcome == "success" else 0.0
-        self._tsr.append(tsr)
 
-        # ── Extract agent credit estimates ────────────────────────────────────
+        # Extract credit estimates
         agent_credits: Dict[int, float] = {}
         for t, (_, credit_est) in enumerate(step_history):
             if credit_est is not None:
                 agent_credits[t] = credit_est
             else:
-                # Fallback: assign equal credit to all steps (naive baseline)
+                # Uniform fallback — signals that credit is uninformative
                 agent_credits[t] = 1.0 / max(n_steps, 1)
 
-        # Normalise to [0,1] preserving relative order
         agent_credits = _normalise(agent_credits)
 
-        # ── PSIA ─────────────────────────────────────────────────────────────
-        # Did agent assign top-N credit to the true pivotal steps?
+        # PSIA
         if agent_credits:
-            # Detect uniform / constant credit estimates: when all values
-            # are identical, ranking is arbitrary so PSIA = random chance.
-            _vals = list(agent_credits.values())
+            _vals    = list(agent_credits.values())
             all_equal = (max(_vals) - min(_vals)) < 1e-9
-            sorted_steps = sorted(
-                agent_credits.keys(),
-                key=lambda t: agent_credits[t],
-                reverse=True,
-            )
+            sorted_steps = sorted(agent_credits.keys(), key=lambda t: agent_credits[t], reverse=True)
             if all_equal:
                 psia_score = n_pivot / max(len(agent_credits), 1)
                 top_n      = set(sorted_steps[:n_pivot])
@@ -81,32 +122,26 @@ class SessionMetrics:
                 psia_score = len(top_n & pivot_set) / n_pivot
         else:
             sorted_steps = []
-            top_n = set()
-            psia_score = 0.0
-        self._psia.append(psia_score)
+            top_n        = set()
+            psia_score   = 0.0
 
-        # ── CCE ───────────────────────────────────────────────────────────────
-        # MSE between agent estimates and ground-truth labels.
-        # Only evaluate over steps the agent actually took (t < n_steps)
-        # so that unplayed steps in early-failure episodes do not inflate
-        # the error with phantom 0.5-vs-0.0 penalties.
+        # CCE — only over steps actually played
         sq_errors = []
         for t, gt in gt_labels.items():
             if t >= n_steps:
-                continue  # skip steps that were never played
+                continue
             est = agent_credits.get(t, 0.5)
             sq_errors.append((est - gt) ** 2)
         cce_score = float(np.mean(sq_errors)) if sq_errors else 0.5
-        self._cce.append(cce_score)
 
-        # ── MPCS (multi-pivot episodes only) ─────────────────────────────────
+        # MPCS (multi-pivot only)
         mpcs_score = None
         if n_pivot > 1 and agent_credits:
             top_k      = set(sorted_steps[:n_pivot])
             mpcs_score = len(top_k & pivot_set) / n_pivot
-            self._mpcs.append(mpcs_score)
 
-        top_attributed_step = sorted_steps[0] if sorted_steps else None
+        # Diagnostics
+        top_attributed_step   = sorted_steps[0] if sorted_steps else None
         top_attributed_action = (
             step_history[top_attributed_step][0]
             if top_attributed_step is not None and top_attributed_step < len(step_history)
@@ -114,8 +149,7 @@ class SessionMetrics:
         )
         top_attributed_credit = (
             round(agent_credits[top_attributed_step], 4)
-            if top_attributed_step is not None
-            else None
+            if top_attributed_step is not None else None
         )
         pivotal_step_rank = None
         if sorted_steps:
@@ -124,28 +158,25 @@ class SessionMetrics:
                     pivotal_step_rank = idx
                     break
 
-        non_pivots = [t for t in agent_credits if t not in pivot_set]
-        # Only consider pivots that were actually played (exist in agent_credits)
-        played_pivots = [t for t in pivot_set if t in agent_credits]
-        best_pivot_credit = max((agent_credits[t] for t in played_pivots), default=0.0)
-        best_nonpivot_credit = max((agent_credits[t] for t in non_pivots), default=0.0)
-        attribution_gap = round(best_pivot_credit - best_nonpivot_credit, 4)
+        non_pivots         = [t for t in agent_credits if t not in pivot_set]
+        played_pivots      = [t for t in pivot_set if t in agent_credits]
+        best_pivot_credit  = max((agent_credits[t] for t in played_pivots), default=0.0)
+        best_decoy_credit  = max((agent_credits[t] for t in non_pivots), default=0.0)
+        attribution_gap    = round(best_pivot_credit - best_decoy_credit, 4)
         false_positive_steps = sorted(top_n - pivot_set)
         success_with_wrong_attribution = (outcome == "success") and (psia_score < 1.0)
 
-        self.n_complete += 1
-
         return {
-            "tsr":  tsr,
-            "psia": round(psia_score, 4),
-            "cce":  round(cce_score,  4),
-            "mpcs": round(mpcs_score, 4) if mpcs_score is not None else None,
-            "top_attributed_step": top_attributed_step,
+            "tsr":   tsr,
+            "psia":  round(psia_score, 4),
+            "cce":   round(cce_score,  4),
+            "mpcs":  round(mpcs_score, 4) if mpcs_score is not None else None,
+            "top_attributed_step":   top_attributed_step,
             "top_attributed_action": top_attributed_action,
             "top_attributed_credit": top_attributed_credit,
-            "pivotal_step_rank": pivotal_step_rank,
-            "false_positive_steps": false_positive_steps,
-            "attribution_gap": attribution_gap,
+            "pivotal_step_rank":     pivotal_step_rank,
+            "false_positive_steps":  false_positive_steps,
+            "attribution_gap":       attribution_gap,
             "success_with_wrong_attribution": success_with_wrong_attribution,
         }
 
@@ -164,8 +195,8 @@ class SessionMetrics:
         return float(np.mean(self._tsr)) if self._tsr else 0.0
 
     @property
-    def mpcs(self) -> float:
-        return float(np.mean(self._mpcs)) if self._mpcs else 0.0
+    def mpcs(self) -> Optional[float]:
+        return float(np.mean(self._mpcs)) if self._mpcs else None
 
     def summary(self) -> dict:
         return {
@@ -173,7 +204,7 @@ class SessionMetrics:
             "PSIA": round(self.psia, 4),
             "CCE":  round(self.cce,  4),
             "TSR":  round(self.tsr,  4),
-            "MPCS": round(self.mpcs, 4),
+            "MPCS": round(self.mpcs, 4) if self.mpcs is not None else None,
         }
 
     def reset(self):
@@ -182,6 +213,7 @@ class SessionMetrics:
         self._tsr.clear()
         self._mpcs.clear()
         self.n_complete = 0
+        self._last_metrics = {}
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -199,10 +231,7 @@ def _normalise(credits: Dict[int, float]) -> Dict[int, float]:
 
 
 def compute_gt_labels(episode) -> Dict[int, float]:
-    """
-    Ground-truth credit labels for a completed episode.
-    Uniform distribution over pivotal steps; 0 for decoys.
-    """
+    """Ground-truth credit labels. Uniform over pivotal steps; 0 for decoys."""
     n_pivot = len(episode.pivotal_indices)
     labels: Dict[int, float] = {}
     for t in range(episode.t_total):

@@ -796,79 +796,114 @@ class ResearchGeneratorV2(ResearchGenerator):
         causal_chain = []
         decoys = [t for t in range(t_total) if t not in pivot_positions and t > 0 and t < t_total - 1]
 
+        # Build meaningful action names from the actual synthesis options
+        correct_action  = "conclude_" + "_".join(topic["correct_synthesis"].split()[:5]).lower().rstrip(".,")
+        wrong_action_a  = "conclude_" + "_".join(topic["wrong_synthesis_a"].split()[:5]).lower().rstrip(".,")
+        wrong_action_b  = "conclude_" + "_".join(topic["wrong_synthesis_b"].split()[:5]).lower().rstrip(".,")
+        wrong_action_c  = "flag_evidence_insufficient_and_withhold_conclusion"
+        # Sanitise to valid action identifiers
+        import re
+        def clean(s): return re.sub(r'[^a-z0-9_]', '_', s)[:60]
+        correct_action  = clean(correct_action)
+        wrong_action_a  = clean(wrong_action_a)
+        wrong_action_b  = clean(wrong_action_b)
+
+        source_labels = ["review_source_on_experimental_design", "review_source_on_sample_population",
+                         "check_for_contradicting_literature", "assess_effect_size_and_confidence_intervals",
+                         "examine_methodology_and_controls", "review_meta_analysis_coverage"]
+
         for t in range(t_total):
             if t == 0:
                 steps.append({
                     "context": (
-                        f"Research task: '{topic['question']}'\n"
-                        "You have access to 5 sources. Several seem persuasive at first glance. Review them carefully before committing to a synthesis."
+                        f"Policy brief request: '{topic['question']}'\n"
+                        f"You have retrieved 5 studies. Preliminary scan suggests the evidence is mixed. "
+                        f"You need to produce a defensible synthesis before the stakeholder deadline."
                     ),
-                    "available_actions": ["read_source_A", "read_source_B", "read_source_C", "read_source_D", "read_source_E"],
-                    "default_action": "read_source_B",
+                    "available_actions": [
+                        "skim_all_abstracts_before_deep_review",
+                        "start_with_highest_cited_paper",
+                        "start_with_most_recent_publication",
+                        "request_additional_literature_search",
+                        "begin_structured_evidence_table",
+                    ],
+                    "default_action": "skim_all_abstracts_before_deep_review",
                 })
-                causal_chain.append("Step 0: Starting review. No causal effect - all sources available throughout.")
+                causal_chain.append("Step 0: Initial orientation. Approach choice has no causal effect — all evidence remains accessible regardless.")
             elif t == piv_idx:
-                correct_action = "commit_frame_alpha"
-                wrong_a = "commit_frame_beta"
-                wrong_b = "commit_frame_gamma"
-                wrong_c = "commit_frame_delta"
                 steps.append({
                     "context": (
-                        f"Source A reports: '{topic['source_a']}'\n"
-                        f"Source D reports: '{topic['source_d']}'\n"
-                        "Both look credible, but they were run under different conditions and neither can be read as a universal answer on its own. "
-                        "Choose the synthesis frame that best reconciles the disagreement without over-generalizing."
+                        f"You have now reviewed all five studies. Two directly contradict each other on the key question.\n\n"
+                        f"Study A ({topic['source_a']})\n"
+                        f"Study D ({topic['source_d']})\n\n"
+                        f"Both studies are well-designed. The disagreement is real. "
+                        f"Three other studies provide supporting context but do not resolve this contradiction directly. "
+                        f"You must now write the synthesis conclusion. Which statement most accurately captures what the combined evidence supports?"
                     ),
                     "available_actions": [
                         correct_action,
-                        wrong_a,
-                        wrong_b,
-                        wrong_c,
+                        wrong_action_a,
+                        wrong_action_b,
+                        wrong_action_c,
                     ],
-                    "default_action": wrong_a,
+                    "default_action": wrong_action_a,
                 })
                 causal_chain.append(
-                    f"Step {t}: PIVOTAL - resolving the conditional contradiction. "
-                    "Only one synthesis frame preserves both the evidence and its scope conditions."
+                    f"Step {t}: PIVOTAL — the synthesis conclusion locks in the answer. "
+                    f"Only '{correct_action}' correctly accounts for the scope conditions under which both studies hold."
                 )
             elif t == t_total - 1:
                 steps.append({
-                    "context": "Compile your synthesis into the final research report.",
-                    "available_actions": ["submit_qualified_answer", "submit_strong_claim", "request_more_time"],
-                    "default_action": "submit_qualified_answer",
+                    "context": (
+                        "Final step: the brief is drafted. You can submit it as-is, add a limitations caveat, "
+                        "or request peer review before delivery."
+                    ),
+                    "available_actions": [
+                        "submit_brief_as_drafted",
+                        "add_limitations_section_then_submit",
+                        "request_internal_peer_review_before_submitting",
+                    ],
+                    "default_action": "add_limitations_section_then_submit",
                 })
-                causal_chain.append(f"Step {t}: Submission. Outcome determined at step {piv_idx}.")
+                causal_chain.append(f"Step {t}: Submission formatting. Outcome was determined at step {piv_idx}.")
             else:
                 decoy_src = rng.choice(topic["decoy_sources"])
+                label = rng.choice(source_labels)
                 if decoy_similarity >= 0.75:
                     context = (
-                        f"Supporting source review. New evidence claims: '{decoy_src}' "
-                        "It looks strong enough to justify an early answer, but its scope and causal relevance remain ambiguous."
+                        f"Deep dive — {label.replace('_', ' ')}. "
+                        f"Finding: {decoy_src} "
+                        f"This looks like it could settle the question on its own, but on closer inspection it does not directly address the conditions under which the effect holds."
                     )
                 elif decoy_similarity >= 0.45:
                     context = (
-                        f"Reviewing supporting literature. Found: '{decoy_src}' "
-                        "This appears directly relevant and could plausibly change the final answer."
+                        f"Literature review — {label.replace('_', ' ')}. "
+                        f"Finding: {decoy_src} "
+                        f"Relevant context, but does not resolve the core disagreement between Study A and Study D."
                     )
                 else:
                     context = (
-                        f"Reviewing supporting literature. Found: '{decoy_src}' "
-                        "This is relevant background information."
+                        f"Background scan — {label.replace('_', ' ')}. "
+                        f"Finding: {decoy_src}"
                     )
                 steps.append({
                     "context": context,
-                    "available_actions": ["note_and_continue", "deep_dive_this_source", "skip_to_next"],
-                    "default_action": "note_and_continue",
+                    "available_actions": [
+                        "record_finding_and_continue_review",
+                        "flag_as_potentially_decisive_and_investigate_further",
+                        "dismiss_as_out_of_scope",
+                    ],
+                    "default_action": "record_finding_and_continue_review",
                 })
                 causal_chain.append(
-                    f"Step {t}: Decoy - persuasive supporting evidence that still does not resolve the core contradiction."
+                    f"Step {t}: Decoy — supporting evidence that is persuasive but does not resolve the A-vs-D contradiction."
                 )
 
         cf = {
-            f"commit_frame_beta_at_step_{piv_idx}": "failure - overclaims universality",
-            f"commit_frame_gamma_at_step_{piv_idx}": "failure - underclaims and ignores conditions",
-            f"commit_frame_delta_at_step_{piv_idx}": "failure - no synthesis produced",
-            f"commit_frame_alpha_at_step_{piv_idx}": "success",
+            f"{wrong_action_a}_at_step_{piv_idx}": "failure — overclaims universality, ignores scope conditions",
+            f"{wrong_action_b}_at_step_{piv_idx}": "failure — underclaims, ignores positive evidence",
+            f"{wrong_action_c}_at_step_{piv_idx}": "failure — no synthesis produced, brief cannot be delivered",
+            f"{correct_action}_at_step_{piv_idx}": "success",
         }
 
         return Episode(
@@ -879,7 +914,7 @@ class ResearchGeneratorV2(ResearchGenerator):
             max_steps=20,
             steps=steps,
             pivotal_indices=pivot_positions,
-            pivotal_actions=["commit_frame_alpha"],
+            pivotal_actions=[correct_action],
             decoy_steps=decoys,
             causal_chain=causal_chain,
             counterfactuals=cf,
@@ -891,82 +926,82 @@ class ResearchGeneratorV2(ResearchGenerator):
 class DebuggingGeneratorV2(DebuggingGenerator):
     BUG_SETS = [
         {
-            "title": "compute_stats() - statistical analysis function",
+            "title": "compute_stats() — statistical analysis function",
             "bugs": [
-                {"id": "A", "desc": "Off-by-one in loop range (line 3)", "symptom": "Wrong mean value", "fix": "fix_bug_A", "severity": "high"},
-                {"id": "B", "desc": "Division by zero when n=1 (line 7)", "symptom": "ZeroDivisionError on single-item list", "fix": "fix_bug_B", "severity": "critical"},
-                {"id": "C", "desc": "Wrong variable name: total vs _sum (line 12)", "symptom": "NameError in specific code path", "fix": "fix_bug_C", "severity": "medium"},
-                {"id": "D", "desc": "Float precision in comparison (line 18)", "symptom": "Wrong conditional branch", "fix": "fix_bug_D", "severity": "low"},
+                {"id": "A", "desc": "Off-by-one in loop range (line 3)", "symptom": "Mean value is wrong on all inputs", "fix": "patch_loop_boundary_off_by_one", "severity": "high"},
+                {"id": "B", "desc": "Division by zero when n=1 (line 7)", "symptom": "ZeroDivisionError on single-item lists", "fix": "add_guard_for_single_item_list", "severity": "high"},
+                {"id": "C", "desc": "Wrong variable name: total vs _sum (line 12)", "symptom": "NameError crashes specific downstream code path", "fix": "rename_accumulator_variable_to_match_reference", "severity": "medium"},
+                {"id": "D", "desc": "Float precision in comparison (line 18)", "symptom": "Wrong conditional branch on boundary values", "fix": "replace_float_equality_with_tolerance_check", "severity": "low"},
             ],
             "dependency": "C",
-            "correct_first": "fix_bug_C",
-            "wrong_first": ["fix_bug_A", "fix_bug_B", "fix_bug_D"],
-            "decoy_progress": "Alternative fixes clear visible tests and make the function look mostly repaired, but the upstream dependency fault remains latent.",
+            "correct_first": "rename_accumulator_variable_to_match_reference",
+            "wrong_first": ["patch_loop_boundary_off_by_one", "add_guard_for_single_item_list", "replace_float_equality_with_tolerance_check"],
+            "decoy_progress": "Fixing the loop and division bugs clears the most visible test failures and makes the function appear stable — but the variable name mismatch is the upstream fault that the other fixes depend on.",
         },
         {
-            "title": "parse_config() - configuration parser",
+            "title": "parse_config() — configuration parser",
             "bugs": [
-                {"id": "A", "desc": "Missing null check on optional field (line 5)", "symptom": "AttributeError on empty config", "fix": "fix_bug_A", "severity": "high"},
-                {"id": "B", "desc": "Type coercion fails for boolean strings (line 11)", "symptom": "'true' not parsed as True", "fix": "fix_bug_B", "severity": "high"},
-                {"id": "C", "desc": "Encoding issue in file reader (line 2)", "symptom": "UnicodeDecodeError on non-ASCII configs", "fix": "fix_bug_C", "severity": "critical"},
-                {"id": "D", "desc": "Cache invalidation not triggered (line 19)", "symptom": "Stale config served after update", "fix": "fix_bug_D", "severity": "medium"},
+                {"id": "A", "desc": "Missing null check on optional field (line 5)", "symptom": "AttributeError when config file omits optional keys", "fix": "add_null_check_for_optional_fields", "severity": "high"},
+                {"id": "B", "desc": "Type coercion fails for boolean strings (line 11)", "symptom": "String 'true' and 'false' not parsed as booleans", "fix": "add_string_to_bool_coercion", "severity": "high"},
+                {"id": "C", "desc": "File reader uses wrong encoding (line 2)", "symptom": "UnicodeDecodeError on configs with non-ASCII characters", "fix": "set_utf8_encoding_in_file_reader", "severity": "critical"},
+                {"id": "D", "desc": "Cache not invalidated after config update (line 19)", "symptom": "Stale configuration served after hot reload", "fix": "trigger_cache_invalidation_on_write", "severity": "medium"},
             ],
             "dependency": "C",
-            "correct_first": "fix_bug_C",
-            "wrong_first": ["fix_bug_A", "fix_bug_B", "fix_bug_D"],
-            "decoy_progress": "Superficial fixes stabilize common inputs, which makes the encoding bug easy to dismiss until the full pipeline runs again.",
+            "correct_first": "set_utf8_encoding_in_file_reader",
+            "wrong_first": ["add_null_check_for_optional_fields", "add_string_to_bool_coercion", "trigger_cache_invalidation_on_write"],
+            "decoy_progress": "Null checks and boolean coercion fix the most common failure modes, which makes the encoding bug easy to overlook — but it silently corrupts all downstream parsing for non-ASCII configs.",
         },
         {
-            "title": "render_invoice() - billing pipeline renderer",
+            "title": "render_invoice() — billing pipeline renderer",
             "bugs": [
-                {"id": "A", "desc": "VAT rounding uses display precision instead of accounting precision (line 9)", "symptom": "Totals mismatch by one cent", "fix": "fix_bug_A", "severity": "medium"},
-                {"id": "B", "desc": "Currency formatter silently drops negative sign in refunds (line 14)", "symptom": "Refund invoices show positive balance", "fix": "fix_bug_B", "severity": "high"},
-                {"id": "C", "desc": "Template loader chooses stale schema version from cache (line 2)", "symptom": "Renderer ignores newly added fields", "fix": "fix_bug_C", "severity": "critical"},
-                {"id": "D", "desc": "Optional discount block crashes when coupon missing (line 21)", "symptom": "KeyError on no-discount invoices", "fix": "fix_bug_D", "severity": "high"},
+                {"id": "A", "desc": "VAT rounding uses display precision instead of accounting precision (line 9)", "symptom": "Invoice totals mismatched by one cent on some orders", "fix": "use_decimal_accounting_precision_for_vat", "severity": "medium"},
+                {"id": "B", "desc": "Currency formatter drops negative sign on refunds (line 14)", "symptom": "Refund invoices display positive balance instead of negative", "fix": "preserve_negative_sign_in_currency_formatter", "severity": "high"},
+                {"id": "C", "desc": "Template loader reads stale schema version from cache (line 2)", "symptom": "Invoice renderer ignores all fields added after last deploy", "fix": "clear_schema_cache_on_template_load", "severity": "critical"},
+                {"id": "D", "desc": "Discount block crashes when coupon field is absent (line 21)", "symptom": "KeyError on invoices with no discount applied", "fix": "add_safe_access_for_optional_discount_block", "severity": "high"},
             ],
             "dependency": "C",
-            "correct_first": "fix_bug_C",
-            "wrong_first": ["fix_bug_B", "fix_bug_D", "fix_bug_A"],
-            "decoy_progress": "Patching the visible billing bugs removes obvious failures first, making the cached schema issue look less central than it really is.",
+            "correct_first": "clear_schema_cache_on_template_load",
+            "wrong_first": ["preserve_negative_sign_in_currency_formatter", "add_safe_access_for_optional_discount_block", "use_decimal_accounting_precision_for_vat"],
+            "decoy_progress": "Patching the refund sign and the coupon crash removes the most customer-visible bugs, but the schema cache is silently omitting new fields from every invoice — that fault cascades through all downstream rendering.",
         },
         {
-            "title": "sync_profiles() - CRM account synchronizer",
+            "title": "sync_profiles() — CRM account synchronizer",
             "bugs": [
-                {"id": "A", "desc": "Null company field causes merge comparator mismatch (line 6)", "symptom": "Duplicate profiles created", "fix": "fix_bug_A", "severity": "high"},
-                {"id": "B", "desc": "Retry loop never backs off on rate-limit responses (line 18)", "symptom": "Bursts of repeated 429 errors", "fix": "fix_bug_B", "severity": "medium"},
-                {"id": "C", "desc": "Primary key mapping loads obsolete field alias from schema adapter (line 3)", "symptom": "Correct records cannot be matched across systems", "fix": "fix_bug_C", "severity": "critical"},
-                {"id": "D", "desc": "Audit logger redacts IDs before dedupe summary runs (line 24)", "symptom": "Dedupe report missing record identifiers", "fix": "fix_bug_D", "severity": "low"},
+                {"id": "A", "desc": "Null company field causes merge comparator mismatch (line 6)", "symptom": "Duplicate customer profiles created on every sync", "fix": "handle_null_company_field_in_merge_comparator", "severity": "high"},
+                {"id": "B", "desc": "Retry loop does not back off on rate-limit responses (line 18)", "symptom": "Burst of 429 errors hammers the API after any transient failure", "fix": "add_exponential_backoff_to_retry_loop", "severity": "medium"},
+                {"id": "C", "desc": "Primary key mapping loads obsolete field alias (line 3)", "symptom": "Records cannot be matched across systems — all treated as new", "fix": "update_primary_key_mapping_to_current_schema", "severity": "critical"},
+                {"id": "D", "desc": "Audit logger redacts IDs before deduplication summary runs (line 24)", "symptom": "Deduplication report missing record identifiers", "fix": "run_dedup_summary_before_audit_redaction", "severity": "low"},
             ],
             "dependency": "C",
-            "correct_first": "fix_bug_C",
-            "wrong_first": ["fix_bug_A", "fix_bug_B", "fix_bug_D"],
-            "decoy_progress": "The duplicate-profile symptom shrinks after superficial fixes, which makes the schema adapter bug seem less urgent than it is.",
+            "correct_first": "update_primary_key_mapping_to_current_schema",
+            "wrong_first": ["handle_null_company_field_in_merge_comparator", "add_exponential_backoff_to_retry_loop", "run_dedup_summary_before_audit_redaction"],
+            "decoy_progress": "Fixing the duplicate-profile and backoff bugs reduces visible noise in the logs, but the stale key mapping is silently treating every existing record as new — that fault makes all other fixes ineffective.",
         },
         {
-            "title": "authorize_claim() - insurance claims rules engine",
+            "title": "authorize_claim() — insurance claims adjudication engine",
             "bugs": [
-                {"id": "A", "desc": "Copay parser treats blank string as zero (line 8)", "symptom": "Some claims undercharge members", "fix": "fix_bug_A", "severity": "medium"},
-                {"id": "B", "desc": "Eligibility cache misses plan overrides on renewals (line 17)", "symptom": "Recently renewed members fail authorization", "fix": "fix_bug_B", "severity": "high"},
-                {"id": "C", "desc": "Coverage graph loads obsolete rule bundle before adjudication (line 3)", "symptom": "Downstream approval logic evaluates against the wrong policy tree", "fix": "fix_bug_C", "severity": "critical"},
-                {"id": "D", "desc": "Audit event serializer drops denial reason codes (line 26)", "symptom": "Operators cannot explain some denials", "fix": "fix_bug_D", "severity": "low"},
+                {"id": "A", "desc": "Copay parser treats blank string as zero (line 8)", "symptom": "Some claims undercharge members on co-payments", "fix": "reject_blank_copay_and_require_explicit_zero", "severity": "medium"},
+                {"id": "B", "desc": "Eligibility cache misses plan overrides on renewal date (line 17)", "symptom": "Recently renewed members fail authorization", "fix": "invalidate_eligibility_cache_on_plan_renewal", "severity": "high"},
+                {"id": "C", "desc": "Coverage graph loads an obsolete rule bundle before adjudication (line 3)", "symptom": "All claims evaluated against the wrong policy tree", "fix": "force_coverage_graph_to_load_current_rule_bundle", "severity": "critical"},
+                {"id": "D", "desc": "Audit serializer drops denial reason codes (line 26)", "symptom": "Operators cannot reconstruct why a claim was denied", "fix": "include_denial_reason_codes_in_audit_serializer", "severity": "low"},
             ],
             "dependency": "C",
-            "correct_first": "fix_bug_C",
-            "wrong_first": ["fix_bug_B", "fix_bug_A", "fix_bug_D"],
-            "decoy_progress": "Fixing eligibility and copay symptoms restores many happy-path tests, which makes the stale rule bundle seem secondary until edge cases are replayed.",
+            "correct_first": "force_coverage_graph_to_load_current_rule_bundle",
+            "wrong_first": ["invalidate_eligibility_cache_on_plan_renewal", "reject_blank_copay_and_require_explicit_zero", "include_denial_reason_codes_in_audit_serializer"],
+            "decoy_progress": "Fixing eligibility cache and co-pay parsing restores correct outcomes on most test claims, but the stale rule bundle is silently adjudicating every claim against last month's policy — fixing the other bugs on top of that foundation produces the wrong results.",
         },
         {
-            "title": "schedule_pickups() - warehouse dispatch planner",
+            "title": "schedule_pickups() — warehouse dispatch planner",
             "bugs": [
-                {"id": "A", "desc": "Timezone conversion truncates half-hour offsets (line 10)", "symptom": "Regional pickups slip by thirty minutes", "fix": "fix_bug_A", "severity": "high"},
-                {"id": "B", "desc": "Vehicle-capacity check ignores return routes (line 21)", "symptom": "Some routes overbook drivers", "fix": "fix_bug_B", "severity": "high"},
-                {"id": "C", "desc": "Route graph hydrates yesterday's depot map from cache (line 4)", "symptom": "All later optimization steps use the wrong network topology", "fix": "fix_bug_C", "severity": "critical"},
-                {"id": "D", "desc": "Manifest exporter strips temperature tags (line 27)", "symptom": "Cold-chain pickups lose handling labels", "fix": "fix_bug_D", "severity": "medium"},
+                {"id": "A", "desc": "Timezone conversion truncates half-hour UTC offsets (line 10)", "symptom": "Regional pickups scheduled 30 minutes late", "fix": "fix_timezone_offset_to_support_half_hour_zones", "severity": "high"},
+                {"id": "B", "desc": "Vehicle capacity check ignores return-route load (line 21)", "symptom": "Some routes overbook drivers on the return leg", "fix": "include_return_route_load_in_capacity_check", "severity": "high"},
+                {"id": "C", "desc": "Route graph loads yesterday's depot map from cache (line 4)", "symptom": "All routing decisions use an outdated network topology", "fix": "invalidate_route_graph_cache_before_planning_run", "severity": "critical"},
+                {"id": "D", "desc": "Manifest exporter strips temperature handling tags (line 27)", "symptom": "Cold-chain pickups dispatched without temperature labels", "fix": "preserve_temperature_tags_in_manifest_export", "severity": "medium"},
             ],
             "dependency": "C",
-            "correct_first": "fix_bug_C",
-            "wrong_first": ["fix_bug_B", "fix_bug_A", "fix_bug_D"],
-            "decoy_progress": "Capacity and timezone fixes improve dispatch metrics immediately, but the cached depot map keeps poisoning all route decisions underneath.",
+            "correct_first": "invalidate_route_graph_cache_before_planning_run",
+            "wrong_first": ["include_return_route_load_in_capacity_check", "fix_timezone_offset_to_support_half_hour_zones", "preserve_temperature_tags_in_manifest_export"],
+            "decoy_progress": "Fixing capacity and timezone bugs immediately improves dispatch metrics and removes obvious failures, but the stale depot map is poisoning every routing decision — all subsequent optimisations are built on incorrect network topology.",
         },
     ]
 
@@ -981,57 +1016,90 @@ class DebuggingGeneratorV2(DebuggingGenerator):
         for t in range(t_total):
             if t == 0:
                 bug_list = "\n".join(
-                    f"  Bug {b['id']}: {b['desc']} - symptom: {b['symptom']} [severity: {b['severity']}]"
+                    f"  • {b['desc']} — symptom: {b['symptom']} (severity: {b['severity']})"
                     for b in bug_set["bugs"]
                 )
                 steps.append({
                     "context": (
-                        f"You are debugging {bug_set['title']}.\n"
-                        f"Test suite reveals 4 bugs:\n{bug_list}\n"
-                        "Several fixes look urgent. Fix order matters because some symptoms are downstream of an upstream blocker."
+                        f"Production incident — {bug_set['title']}\n\n"
+                        f"On-call triage has identified four contributing defects:\n{bug_list}\n\n"
+                        "All four are real bugs. Fix order matters: one of them is a root-cause fault "
+                        "that other fixes depend on. Resolving downstream symptoms first will appear to "
+                        "make progress but leave the system broken in production.\n\n"
+                        "Which fix do you apply first?"
                     ),
                     "available_actions": all_fixes,
                     "default_action": bug_set["wrong_first"][0],
                 })
-                causal_chain.append(f"Step {t}: Initial diagnosis. No fix applied yet.")
+                causal_chain.append(f"Step {t}: Initial triage. Reviewing available patches — no fix applied yet.")
             elif t == piv_idx:
+                dep_bug = next(b for b in bug_set["bugs"] if b["fix"] == bug_set["correct_first"])
+                other_bugs = [b for b in bug_set["bugs"] if b["fix"] != bug_set["correct_first"]]
                 steps.append({
                     "context": (
-                        "Fresh traces show that several failures share a hidden dependency, but the test output still makes multiple fixes look reasonable. "
-                        "Addressing the most visible symptom first will improve the dashboard, yet may leave the true failure chain intact. "
-                        f"Current failure cluster includes: {[b['symptom'] for b in bug_set['bugs'][:2]]}. "
-                        "Choose which bug to fix first."
+                        f"Engineering lead has escalated. Deeper trace analysis on {bug_set['title']}:\n\n"
+                        f"The three most visible symptoms — {[b['symptom'] for b in other_bugs]} — "
+                        f"each have straightforward patches ready. However, the traces also show that "
+                        f"{dep_bug['desc']} ({dep_bug['symptom']}) is structurally upstream: "
+                        f"it determines how the rest of the code executes.\n\n"
+                        f"{bug_set['decoy_progress']}\n\n"
+                        "Which fix do you apply at this stage?"
                     ),
                     "available_actions": all_fixes,
                     "default_action": bug_set["wrong_first"][0],
                 })
                 causal_chain.append(
-                    f"Step {t}: PIVOTAL - fix-order decision. Only one first fix preserves the only success path."
+                    f"Step {t}: PIVOTAL — the fix applied here determines whether the repair succeeds. "
+                    f"Only '{bug_set['correct_first']}' resolves the upstream fault first."
                 )
             elif t == t_total - 1:
                 steps.append({
-                    "context": "All remaining bugs fixed. Run final test suite.",
-                    "available_actions": ["run_full_test_suite", "run_unit_tests_only", "deploy_without_tests"],
-                    "default_action": "run_full_test_suite",
+                    "context": (
+                        "Remaining patches applied. Choose how to validate before closing the incident."
+                    ),
+                    "available_actions": [
+                        "run_full_regression_suite_before_deploying",
+                        "run_targeted_unit_tests_for_changed_modules",
+                        "deploy_to_staging_and_monitor_error_rate",
+                    ],
+                    "default_action": "run_full_regression_suite_before_deploying",
                 })
-                causal_chain.append(f"Step {t}: Final validation. Outcome set at step {piv_idx}.")
+                causal_chain.append(f"Step {t}: Final validation. Outcome determined at step {piv_idx}.")
             else:
                 decoy_bug = rng.choice([b for b in bug_set["bugs"] if b["fix"] != bug_set["correct_first"]])
+                if decoy_similarity >= 0.75:
+                    context = (
+                        f"New error report on {bug_set['title']}. "
+                        f"Affected users report: '{decoy_bug['symptom']}'. "
+                        f"A patch for {decoy_bug['desc']} is ready and will resolve this complaint immediately. "
+                        f"{bug_set['decoy_progress']}"
+                    )
+                elif decoy_similarity >= 0.45:
+                    context = (
+                        f"Investigating {bug_set['title']} further. "
+                        f"Logs confirm: {decoy_bug['symptom']}. "
+                        f"Root cause traced to {decoy_bug['desc']}. Patch is straightforward."
+                    )
+                else:
+                    context = (
+                        f"Review in progress. Next candidate: {decoy_bug['desc']} "
+                        f"causing {decoy_bug['symptom']}."
+                    )
                 steps.append({
-                    "context": (
-                        f"Continuing debugging session. Patch candidate {decoy_bug['id']} would address "
-                        f"'{decoy_bug['symptom']}'. {bug_set['decoy_progress']}"
-                    ),
-                    "available_actions": all_fixes + ["write_regression_test", "add_logging"],
+                    "context": context,
+                    "available_actions": all_fixes + [
+                        "add_detailed_logging_before_fixing",
+                        "write_regression_test_to_confirm_fix",
+                    ],
                     "default_action": decoy_bug["fix"],
                 })
                 causal_chain.append(
-                    f"Step {t}: Decoy fix. It resolves a real visible bug but does not change the dependency structure."
+                    f"Step {t}: Decoy — a real visible bug with a ready patch, but not the upstream fault that determines overall success."
                 )
 
         cf = {
-            f"{bug_set['correct_first']}_at_step_{piv_idx}": "success",
-            **{f"{w}_at_step_{piv_idx}": "failure (dependency cycle)" for w in bug_set["wrong_first"]},
+            f"{bug_set['correct_first']}_at_step_{piv_idx}": "success — upstream fault resolved first",
+            **{f"{w}_at_step_{piv_idx}": "failure — downstream symptom patched before upstream fault, leaving system broken" for w in bug_set["wrong_first"]},
         }
 
         return Episode(
@@ -1118,71 +1186,95 @@ class ResourceGeneratorV2(ResourceGenerator):
         causal_chain = []
         decoys = [t for t in range(t_total) if t not in pivot_positions and t > 0 and t < t_total - 1]
 
-        allocate_actions = [f"allocate_{r}" for r in scenario["resources"]]
-        correct_action = f"allocate_{scenario['pivotal_resource']}"
+        # Build meaningful action names: "commit_to_<resource>" instead of "allocate_<resource>"
+        def action_name(resource):
+            return f"commit_to_{resource}"
+        allocate_actions = [action_name(r) for r in scenario["resources"]]
+        correct_action   = action_name(scenario["pivotal_resource"])
+        wrong_actions    = [action_name(w) for w in scenario["wrong_first"]]
 
         for t in range(t_total):
             if t == 0:
-                res_list = ", ".join(scenario["resources"])
+                res_display = "\n".join(f"  • {r.replace('_', ' ').title()}" for r in scenario["resources"])
                 steps.append({
                     "context": (
-                        f"Task: {scenario['title']}.\n"
-                        f"Available resources to allocate: {res_list}.\n"
-                        "Several options offer immediate visible benefits, but not all preserve the only successful execution path."
+                        f"Planning meeting — {scenario['title']}\n\n"
+                        f"Five resource commitments are available:\n{res_display}\n\n"
+                        f"You have budget for all of them but must sequence commitments carefully. "
+                        f"Some resources remain available throughout the planning window; others have tight lead times or closing windows. "
+                        f"Which commitment do you make first?"
                     ),
                     "available_actions": allocate_actions,
                     "default_action": allocate_actions[0],
                 })
-                causal_chain.append("Step 0: Planning phase. No allocation yet - all options open.")
+                causal_chain.append("Step 0: Planning phase. Reviewing options — no commitment made yet.")
             elif t == piv_idx:
+                piv_resource = scenario["pivotal_resource"].replace("_", " ")
                 steps.append({
                     "context": (
-                        f"Availability review: {scenario['reason']} "
-                        "Several alternatives would improve short-term dashboards immediately, but only one commitment preserves the irreversible success path. "
-                        "Choose the next resource to lock in."
+                        f"Operational update — {scenario['title']}\n\n"
+                        f"{scenario['reason']}\n\n"
+                        f"{scenario['decoy_signal']}\n\n"
+                        f"The window for some commitments is narrowing. "
+                        f"Which resource do you lock in now?"
                     ),
                     "available_actions": allocate_actions,
-                    "default_action": f"allocate_{scenario['wrong_first'][0]}",
+                    "default_action": wrong_actions[0],
                 })
                 causal_chain.append(
-                    f"Step {t}: PIVOTAL - irreversible allocation window. Only one allocation secures the durable success path."
+                    f"Step {t}: PIVOTAL — commitment window closing. "
+                    f"Only '{correct_action}' secures the resource before the window closes."
                 )
             elif t == t_total - 1:
                 steps.append({
-                    "context": "Finalise allocation plan and submit for approval.",
-                    "available_actions": ["submit_plan", "request_extension", "partial_submit"],
-                    "default_action": "submit_plan",
+                    "context": (
+                        "Remaining commitments finalised. Choose how to close out the allocation plan."
+                    ),
+                    "available_actions": [
+                        "submit_completed_allocation_plan_for_sign_off",
+                        "request_one_week_extension_to_revisit_scope",
+                        "submit_partial_plan_with_open_items_flagged",
+                    ],
+                    "default_action": "submit_completed_allocation_plan_for_sign_off",
                 })
-                causal_chain.append(f"Step {t}: Submission. Outcome set at step {piv_idx}.")
+                causal_chain.append(f"Step {t}: Plan submission. Outcome determined at step {piv_idx}.")
             else:
                 other = rng.choice([r for r in scenario["resources"] if r != scenario["pivotal_resource"]])
+                other_display = other.replace("_", " ").title()
                 if decoy_similarity >= 0.75:
                     context = (
-                        f"Allocation review: {other.replace('_', ' ').title()} has a strong immediate business case. "
-                        f"{scenario['decoy_signal']}"
+                        f"Resource review — {other_display}\n\n"
+                        f"This commitment has a clear immediate return and strong stakeholder support. "
+                        f"{scenario['decoy_signal']} "
+                        f"It can be committed now or later without changing the outcome."
                     )
                 elif decoy_similarity >= 0.45:
                     context = (
-                        f"Allocation review: {other.replace('_', ' ').title()} appears to unlock near-term progress. "
-                        "It looks like a plausible next commitment."
+                        f"Resource review — {other_display}\n\n"
+                        f"Standard approval checklist complete. Budget available. "
+                        f"This is a flexible commitment — it can be rescheduled if priorities shift."
                     )
                 else:
                     context = (
-                        f"Routine allocation step. {other.replace('_', ' ').title()} is available and within budget. "
-                        "Standard approval process applies."
+                        f"Routine review — {other_display}. Within budget. No hard deadline. "
+                        f"Can be deferred to next planning cycle if needed."
                     )
                 steps.append({
                     "context": context,
-                    "available_actions": allocate_actions + ["defer_decision", "request_cost_analysis"],
-                    "default_action": f"allocate_{other}",
+                    "available_actions": allocate_actions + [
+                        "defer_this_commitment_to_next_review_cycle",
+                        "request_updated_cost_estimate_before_committing",
+                    ],
+                    "default_action": action_name(other),
                 })
                 causal_chain.append(
-                    f"Step {t}: Decoy allocation. Plausibly useful, but not the irreversible bottleneck."
+                    f"Step {t}: Decoy allocation — a flexible resource with no hard window. "
+                    "Can be committed in any order without affecting the outcome."
                 )
 
         cf = {
-            f"{correct_action}_at_step_{piv_idx}": "success",
-            **{f"allocate_{w}_at_step_{piv_idx}": "failure (pivotal resource window closes)" for w in scenario["wrong_first"]},
+            f"{correct_action}_at_step_{piv_idx}": "success — time-critical commitment secured",
+            **{f"{w}_at_step_{piv_idx}": "failure — window for critical resource closes before it is committed" for w in wrong_actions},
         }
 
         return Episode(
@@ -1197,7 +1289,7 @@ class ResourceGeneratorV2(ResourceGenerator):
             decoy_steps=decoys,
             causal_chain=causal_chain,
             counterfactuals=cf,
-            initial_state={"allocated": [], "budget_remaining": 1.0},
+            initial_state={"committed": [], "budget_remaining": 1.0},
             min_steps=piv_idx + 2,
         )
 

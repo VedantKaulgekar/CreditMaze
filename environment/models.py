@@ -33,10 +33,17 @@ class Action(BaseModel):
     reasoning: Optional[str] = Field(
         None, description="Agent chain-of-thought — stored for PSIA analysis"
     )
-    # Agent self-reported importance: used for CCE computation
+    # Per-step forward guess — kept for API compat but NOT the primary signal.
     credit_estimate: Optional[float] = Field(
         None, ge=0.0, le=1.0,
-        description="How important does the agent think THIS step is? [0,1]"
+        description="Forward importance guess for THIS step [0,1]. Superseded by retrospective_credits after episode ends."
+    )
+    # PRIMARY credit signal: submitted once after done=True via /credit endpoint.
+    # Maps step index (as str key) -> credit float [0,1].
+    # e.g. {"0": 0.05, "3": 0.9, "4": 0.0, ...}
+    retrospective_credits: Optional[Dict[str, float]] = Field(
+        None,
+        description="After episode ends: map of step index (str) -> credit [0,1] for entire trajectory."
     )
 
 
@@ -81,17 +88,19 @@ class State(BaseModel):
     min_steps_needed:        Optional[int]              = None
 
     # Session metrics
-    session_psia:       float = 0.0
-    session_cce:        float = 0.0
-    session_tsr:        float = 0.0
-    session_mpcs:       float = 0.0
-    episodes_completed: int   = 0
+    session_psia:       float           = 0.0
+    session_cce:        float           = 0.0
+    session_tsr:        float           = 0.0
+    session_mpcs:       Optional[float] = None   # None until a multi-pivot episode completes
+    episodes_completed: int             = 0
 
     # Episode-level attribution diagnostics (available after completion)
-    top_attributed_step: Optional[int] = None
-    top_attributed_action: Optional[str] = None
-    top_attributed_credit: Optional[float] = None
-    pivotal_step_rank: Optional[int] = None
-    false_positive_steps: Optional[List[int]] = None
-    attribution_gap: Optional[float] = None
-    success_with_wrong_attribution: Optional[bool] = None
+    top_attributed_step:            Optional[int]       = None
+    top_attributed_action:          Optional[str]       = None
+    top_attributed_credit:          Optional[float]     = None
+    pivotal_step_rank:              Optional[int]       = None
+    false_positive_steps:           Optional[List[int]] = None
+    attribution_gap:                Optional[float]     = None
+    success_with_wrong_attribution: Optional[bool]      = None
+    # "retrospective" = primary LLM credit call, "forward" = per-step guesses
+    credit_source:                  Optional[str]       = None

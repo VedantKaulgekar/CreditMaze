@@ -1,6 +1,14 @@
 """
 CreditMaze — Main Environment Class
 Implements the full OpenEnv spec: reset(), step(), state().
+
+Credit assignment is RETROSPECTIVE:
+- During play, credit_estimate per step is stored as a fallback only.
+- After done=True, the agent calls submit_retrospective_credits() with a
+  {step_index: credit} map for the whole trajectory.
+- PSIA/CCE/MPCS are computed from retrospective credits when available,
+  falling back to per-step forward guesses only if no retrospective call
+  was made (e.g. random baseline).
 """
 from __future__ import annotations
 import hashlib
@@ -23,10 +31,13 @@ class EpisodeState:
         self.done       = False
         self.outcome    = "in_progress"
         self.cumulative_reward = 0.0
-        # List of (action_id, credit_estimate) per step
-        self.step_history: List[Tuple[str, Optional[float]]] = []
+        # List of (action_id, step_index, credit_estimate) per step
+        self.step_history: List[Tuple[str, int, Optional[float]]] = []
         self.resolved_pivots = set()
         self.episode_metrics: Dict[str, object] = {}
+        # Retrospective credit map submitted after done=True: {step_idx: float}
+        self.retrospective_credits: Optional[Dict[int, float]] = None
+        self.credit_source: Optional[str] = None   # "retrospective" | "forward"
 
     @property
     def current_step(self) -> dict:
@@ -43,6 +54,7 @@ class CreditMazeEnv:
     reset(tier, domain, seed) → Observation
     step(episode_id, action)  → StepResult
     state(episode_id)         → State
+    submit_retrospective_credits(episode_id, credits) → dict  (NEW)
     """
 
     def __init__(self, config: dict = {}):
@@ -60,10 +72,6 @@ class CreditMazeEnv:
         domain: Optional[str] = None,
         seed: Optional[int] = None,
     ) -> Observation:
-        """
-        Generate a new episode, validate causal structure, return initial observation.
-        Re-generates if causal faithfulness < 0.95.
-        """
         episode = self._generate_validated(tier, domain, seed)
         episode_id = self._make_episode_id(episode, seed)
         episode.episode_id = episode_id
@@ -73,53 +81,37 @@ class CreditMazeEnv:
 
         return self._make_obs(ep_state)
 
-    def _generate_validated(
-        self,
-        tier: str,
-        domain: Optional[str],
-        seed: Optional[int],
-    ) -> Episode:
-        """Generate and validate episode; retry if faithfulness < 0.95."""
+    def _generate_validated(self, tier, domain, seed) -> Episode:
         for attempt in range(self.max_regen_attempts):
             s = (seed + attempt) if seed is not None else None
             episode = self.engine.generate(tier=tier, domain=domain, seed=s)
             faith   = self.simulator.validate(episode)
             if faith >= 0.95:
                 return episode
-        # Use last generated episode even if faithfulness is slightly low
         return episode
 
     # ── step ──────────────────────────────────────────────────────────────────
 
     def step(self, episode_id: str, action: Action) -> StepResult:
-        """
-        Process one agent action.
-        Returns StepResult with observation, reward, done, info.
-        Ground-truth credit labels are only revealed when done=True.
-        """
         ep = self._get_episode(episode_id)
         if ep.done:
             raise ValueError(f"Episode {episode_id} is already complete.")
 
-        step_idx = ep.step_count
+        step_idx   = ep.step_count
         is_pivotal = step_idx in set(ep.episode.pivotal_indices)
 
-        # Validate action
-        available = ep.current_step.get("available_actions", [])
-        action_id = action.action_id
+        available    = ep.current_step.get("available_actions", [])
+        action_id    = action.action_id
         invalid_action = bool(available and action_id not in available)
 
-        # Record history
-        ep.step_history.append((action_id, action.credit_estimate))
+        # Store (action_id, step_index, forward_credit_estimate)
+        ep.step_history.append((action_id, step_idx, action.credit_estimate))
         ep.step_count += 1
 
         if invalid_action:
             outcome = "failure"
         else:
-            # Advance causal simulator
-            outcome, _ = self.simulator.advance(
-                ep.episode, step_idx, action_id
-            )
+            outcome, _ = self.simulator.advance(ep.episode, step_idx, action_id)
 
         pivot_set = set(ep.episode.pivotal_indices)
         if step_idx in pivot_set and outcome != "failure":
@@ -134,7 +126,6 @@ class CreditMazeEnv:
         if ep.step_count >= ep.episode.t_total and outcome == "in_progress":
             outcome = "failure"
 
-        # Compute final step reward
         reward = compute_step_reward(
             outcome=outcome,
             step_idx=step_idx,
@@ -146,30 +137,32 @@ class CreditMazeEnv:
         ep.cumulative_reward += reward
         ep.outcome = outcome
 
-        # Check termination
         done = (
             outcome in ("success", "failure")
             or ep.step_count >= ep.episode.max_steps
         )
         ep.done = done
 
-        # Compute ground-truth labels and update session metrics after episode ends
-        gt_labels    = None
-        ep_metrics   = {}
+        # On episode end: compute metrics using whatever credits we have.
+        # If retrospective credits arrive later (via submit_retrospective_credits),
+        # metrics will be recomputed and replaced.
+        gt_labels  = None
+        ep_metrics = {}
         if done:
             gt_labels  = compute_gt_labels(ep.episode)
+            # Use forward guesses as initial fallback
+            forward_history = [(a, c) for a, _, c in ep.step_history]
             ep_metrics = self.metrics.record(
                 episode=ep.episode,
-                step_history=ep.step_history,
+                step_history=forward_history,
                 gt_labels=gt_labels,
                 outcome=ep.outcome,
             )
             ep.episode_metrics = ep_metrics
+            ep.credit_source = "forward"
 
-        # Build observation for next step
         obs = self._make_obs(ep, last_action=action_id, last_reward=reward)
 
-        # Populate is_pivotal_step and ground_truth_credit only after done
         is_piv_this = (step_idx in set(ep.episode.pivotal_indices)) if done else None
         gt_credit   = gt_labels.get(step_idx) if gt_labels else None
 
@@ -187,15 +180,71 @@ class CreditMazeEnv:
             ),
         )
 
+    # ── submit_retrospective_credits ──────────────────────────────────────────
+
+    def submit_retrospective_credits(
+        self,
+        episode_id: str,
+        credits: Dict[str, float],   # {step_index_str: credit_float}
+    ) -> dict:
+        """
+        PRIMARY credit signal. Call once after done=True with a map of
+        step_index → credit [0,1] for the entire trajectory.
+
+        Recomputes PSIA/CCE/MPCS using these retrospective estimates and
+        replaces the forward-guess-based metrics recorded at episode end.
+        """
+        ep = self._get_episode(episode_id)
+        if not ep.done:
+            raise ValueError("Episode is not complete. Cannot submit retrospective credits yet.")
+
+        # Parse and store
+        retro: Dict[int, float] = {}
+        for k, v in credits.items():
+            try:
+                idx = int(k)
+                retro[idx] = float(max(0.0, min(1.0, v)))
+            except (ValueError, TypeError):
+                pass
+
+        ep.retrospective_credits = retro
+        ep.credit_source = "retrospective"
+
+        # Build step_history with retrospective credits replacing forward guesses
+        retro_history = [
+            (action_id, retro.get(step_idx))
+            for action_id, step_idx, _ in ep.step_history
+        ]
+
+        gt_labels = compute_gt_labels(ep.episode)
+
+        # Remove the previously-recorded forward-guess metrics entry and replace
+        self.metrics.replace_last(
+            episode=ep.episode,
+            step_history=retro_history,
+            gt_labels=gt_labels,
+            outcome=ep.outcome,
+        )
+
+        ep.episode_metrics = self.metrics.last_episode_metrics
+
+        return {
+            "episode_id":   episode_id,
+            "credit_source": "retrospective",
+            "n_steps_credited": len(retro),
+            "psia": round(self.metrics.psia, 4),
+            "cce":  round(self.metrics.cce,  4),
+            "mpcs": round(self.metrics.mpcs, 4) if self.metrics.mpcs is not None else None,
+            "attribution_gap": ep.episode_metrics.get("attribution_gap"),
+            "psia_score": ep.episode_metrics.get("psia"),
+            "top_attributed_step": ep.episode_metrics.get("top_attributed_step"),
+            "pivotal_step_rank":   ep.episode_metrics.get("pivotal_step_rank"),
+        }
+
     # ── state ─────────────────────────────────────────────────────────────────
 
     def state(self, episode_id: str) -> State:
-        """
-        Return current episode state.
-        Causal labels (pivotal_step_indices, causal_chain, etc.) are only
-        included after done=True.
-        """
-        ep = self._get_episode(episode_id)
+        ep   = self._get_episode(episode_id)
         done = ep.done
         episode = ep.episode
 
@@ -209,7 +258,6 @@ class CreditMazeEnv:
             cumulative_reward=round(ep.cumulative_reward, 4),
             episode_complete=done,
             outcome=ep.outcome,
-            # Causal labels only after done
             pivotal_step_indices=episode.pivotal_indices if done else None,
             pivotal_actions=episode.pivotal_actions if done else None,
             causal_chain=episode.causal_chain if done else None,
@@ -220,7 +268,7 @@ class CreditMazeEnv:
             session_psia=round(self.metrics.psia, 4),
             session_cce=round(self.metrics.cce,  4),
             session_tsr=round(self.metrics.tsr,  4),
-            session_mpcs=round(self.metrics.mpcs, 4),
+            session_mpcs=round(self.metrics.mpcs, 4) if self.metrics.mpcs is not None else None,
             episodes_completed=self.metrics.n_complete,
             top_attributed_step=ep.episode_metrics.get("top_attributed_step") if done else None,
             top_attributed_action=ep.episode_metrics.get("top_attributed_action") if done else None,
@@ -229,10 +277,10 @@ class CreditMazeEnv:
             false_positive_steps=ep.episode_metrics.get("false_positive_steps") if done else None,
             attribution_gap=ep.episode_metrics.get("attribution_gap") if done else None,
             success_with_wrong_attribution=ep.episode_metrics.get("success_with_wrong_attribution") if done else None,
+            credit_source=ep.credit_source if done else None,
         )
 
     def normalized_score(self, episode_id: str) -> float:
-        """Return a deterministic per-episode score in the open interval (0, 1)."""
         ep = self._get_episode(episode_id)
         max_reward = self._max_possible_reward(ep.episode)
         if max_reward <= 0:
@@ -250,9 +298,7 @@ class CreditMazeEnv:
     def _make_episode_id(self, episode: Episode, seed: Optional[int]) -> str:
         seed_part = "none" if seed is None else str(seed)
         fingerprint = "|".join([
-            episode.tier,
-            episode.domain,
-            seed_part,
+            episode.tier, episode.domain, seed_part,
             ",".join(map(str, episode.pivotal_indices)),
             ",".join(episode.pivotal_actions),
             str(episode.t_total),
@@ -260,25 +306,20 @@ class CreditMazeEnv:
         return hashlib.sha1(fingerprint.encode("utf-8")).hexdigest()[:8]
 
     def _max_possible_reward(self, episode: Episode) -> float:
-        """Maximum achievable cumulative reward for a successful trajectory."""
         pivot_set = set(episode.pivotal_indices)
         total = 0.0
         for step_idx in range(episode.t_total):
             if step_idx == episode.t_total - 1:
                 total += compute_step_reward(
-                    outcome="success",
-                    step_idx=step_idx,
+                    outcome="success", step_idx=step_idx,
                     is_pivotal=(step_idx in pivot_set),
-                    n_steps_taken=episode.t_total,
-                    max_steps=episode.max_steps,
+                    n_steps_taken=episode.t_total, max_steps=episode.max_steps,
                 )
             else:
                 total += compute_step_reward(
-                    outcome="in_progress",
-                    step_idx=step_idx,
+                    outcome="in_progress", step_idx=step_idx,
                     is_pivotal=(step_idx in pivot_set),
-                    n_steps_taken=step_idx + 1,
-                    max_steps=episode.max_steps,
+                    n_steps_taken=step_idx + 1, max_steps=episode.max_steps,
                 )
         return round(total, 4)
 
