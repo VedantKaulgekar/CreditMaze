@@ -320,8 +320,7 @@ def _homepage_html() -> str:
   <div class="logo">🧭 CreditMaze</div>
   <span class="badge-nav">Meta RL Hackathon</span>
   <div class="sp"></div>
-  <a href="/tasks" class="nav-link">API</a>
-  <a href="/health" class="nav-link">Health</a>
+  <a href="/docs" class="nav-link" style="background:rgba(20,184,166,.08);border:1px solid rgba(20,184,166,.2);color:var(--pri);font-weight:600;padding:6px 14px;border-radius:8px">📄 API Docs</a>
 </nav>
 
 <section class="hero fade">
@@ -585,10 +584,19 @@ function selectTask(taskId, meta){
 function updateModeNote(){
   const mode = $('runMode').value;
   const note = $('modeNote');
-  if(mode === 'random'){
-    note.innerHTML = '🎲 <strong>Random baseline:</strong> Agent picks actions at random. Retrospective credits are uniform — PSIA will reflect random chance (~1/N steps). Use this to verify the benchmark runs correctly without needing an API key.';
+  const isRandom = mode === 'random';
+  // Disable/grey out LLM-specific fields when random mode is selected
+  ['modelInput','baseUrlInput','apiKeyInput'].forEach(id => {
+    const el = $(id);
+    if(!el) return;
+    el.disabled = isRandom;
+    el.style.opacity = isRandom ? '0.35' : '1';
+    el.style.cursor  = isRandom ? 'not-allowed' : '';
+  });
+  if(isRandom){
+    note.innerHTML = '🎲 <strong>Random baseline:</strong> Agent picks actions at random. No API key or model needed. Use this to verify the benchmark runs end-to-end without any credentials.';
   } else {
-    note.innerHTML = '🤖 <strong>LLM mode:</strong> The agent uses the model you specify to take actions. After the episode ends, the model is asked to review the full trajectory and assign causal credit to each step. PSIA measures whether it correctly identified the decisive step. Falls back to random if the LLM is unavailable.';
+    note.innerHTML = '🤖 <strong>LLM mode:</strong> The agent uses the model you specify to take actions and assign causal credit. Falls back to random if the LLM call fails or no key is provided.';
   }
 }
 $('runMode').addEventListener('change', updateModeNote);
@@ -1140,7 +1148,8 @@ DemoRunRequest.model_rebuild()
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @app.post("/reset")
-def reset(req: ResetRequest):
+def reset(req: Optional[ResetRequest] = None):
+    req = req or ResetRequest()
     valid_tiers = ["easy", "medium", "hard", "multi-pivot"]
     if req.tier not in valid_tiers:
         raise HTTPException(400, f"tier must be one of {valid_tiers}")
