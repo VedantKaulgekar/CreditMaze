@@ -370,7 +370,7 @@ def _homepage_html() -> str:
     <div class="field">
       <label>Agent Mode</label>
       <select id="runMode">
-        <option value="auto">LLM mode (falls back to random if unavailable)</option>
+        <option value="auto">LLM mode (Fallback: Random baseline)</option>
         <option value="random">Random baseline (no LLM needed)</option>
       </select>
     </div>
