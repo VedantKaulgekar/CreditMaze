@@ -32,9 +32,12 @@ class Episode:
 # ── Tier configuration ────────────────────────────────────────────────────────
 
 TIER_CONFIG = {
+    # pivot_lo ensures at least 2 decoy steps before the pivot in every episode.
+    # This prevents the score from collapsing when the agent fails immediately
+    # and ensures the credit assignment challenge is always meaningful.
     "easy":        dict(t_total=10,  n_pivot=1, pivot_lo=5,  pivot_hi=9,  sim=0.2, max_s=15),
-    "medium":      dict(t_total=14,  n_pivot=1, pivot_lo=1,  pivot_hi=5,  sim=0.5, max_s=20),
-    "hard":        dict(t_total=12,  n_pivot=1, pivot_lo=1,  pivot_hi=3,  sim=0.8, max_s=18),
+    "medium":      dict(t_total=14,  n_pivot=1, pivot_lo=3,  pivot_hi=8,  sim=0.5, max_s=20),
+    "hard":        dict(t_total=12,  n_pivot=1, pivot_lo=2,  pivot_hi=6,  sim=0.8, max_s=18),
     "multi-pivot": dict(t_total=12,  n_pivot=2, pivot_lo=2,  pivot_hi=10, sim=0.9, max_s=18),
 }
 

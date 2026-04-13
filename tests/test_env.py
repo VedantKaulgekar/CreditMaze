@@ -385,7 +385,7 @@ class TestCreditMazeEnv:
 
     def test_causal_labels_revealed_after_done(self, env):
         """Play to completion and verify labels appear in state."""
-        obs = env.reset(tier="easy", domain="corridor", seed=42)
+        obs = env.reset(tier="easy", domain="triage", seed=42)
         ep  = obs.episode_id
         for _ in range(obs.max_steps):
             # Always take first available action
@@ -402,7 +402,7 @@ class TestCreditMazeEnv:
         assert state.counterfactual_outcomes is not None
 
     def test_step_after_done_raises(self, env):
-        obs = env.reset(tier="easy", domain="corridor", seed=42)
+        obs = env.reset(tier="easy", domain="triage", seed=42)
         ep  = obs.episode_id
         for _ in range(obs.max_steps):
             result = env.step(ep, Action(action_id=obs.available_actions[0]))
@@ -435,7 +435,7 @@ class TestCreditMazeEnv:
         assert 0.0 <= state.session_tsr  <= 1.0
 
     def test_normalized_score_in_unit_interval(self, env):
-        obs = env.reset(tier="easy", domain="corridor", seed=42)
+        obs = env.reset(tier="easy", domain="triage", seed=42)
         ep = obs.episode_id
         for _ in range(obs.max_steps):
             result = env.step(ep, Action(action_id=obs.available_actions[0], credit_estimate=0.5))
@@ -446,9 +446,9 @@ class TestCreditMazeEnv:
         assert 0.0 <= score <= 1.0
 
     def test_seed_reproducibility(self, env):
-        obs1 = env.reset(tier="easy", domain="corridor", seed=7)
+        obs1 = env.reset(tier="easy", domain="triage", seed=7)
         env2 = CreditMazeEnv()
-        obs2 = env2.reset(tier="easy", domain="corridor", seed=7)
+        obs2 = env2.reset(tier="easy", domain="triage", seed=7)
         assert obs1.context == obs2.context
         assert obs1.available_actions == obs2.available_actions
 
@@ -460,7 +460,7 @@ class TestCreditMazeEnv:
         """
         def run_with_strategy(credit_strategy, seed=42):
             e = CreditMazeEnv()
-            obs = e.reset(tier="easy", domain="corridor", seed=seed)
+            obs = e.reset(tier="easy", domain="triage", seed=seed)
             ep  = obs.episode_id
             steps_taken = 0
             for _ in range(obs.max_steps):

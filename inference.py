@@ -35,7 +35,7 @@ TIMEOUT       = float(os.getenv("CREDITMAZE_TIMEOUT", "60"))
 # Maps openenv.yaml task IDs → environment reset params
 # IDs MUST exactly match the id: fields in openenv.yaml
 TASK_CONFIG = {
-    "task_easy":        {"tier": "easy",         "domain": "corridor"},
+    "task_easy":        {"tier": "easy",         "domain": "triage"},
     "task_medium":      {"tier": "medium",        "domain": "research"},
     "task_hard":        {"tier": "hard",          "domain": "debugging"},
     "resource_hard":    {"tier": "hard",          "domain": "resource"},
@@ -177,7 +177,7 @@ def run_task(
             decision, step_error = choose_action(client, obs, task_id)
             action_id = decision.get("action_id", obs["available_actions"][0])
             if action_id not in obs["available_actions"]:
-                action_id = obs["available_actions"][0]
+                action_id = random.choice(obs["available_actions"])
 
             result  = http.post("/step", json={
                 "episode_id":     obs["episode_id"],
@@ -195,6 +195,15 @@ def run_task(
             obs = result["observation"]
             if done:
                 break
+
+        # Retrospective credit: assign heuristic (recency bias) after episode ends
+        n_steps = len(rewards)
+        retro_credits = {str(i): round(0.1 + 0.8 * (i / max(n_steps - 1, 1)), 3)
+                         for i in range(n_steps)}
+        try:
+            http.post("/credit", json={"episode_id": obs["episode_id"], "credits": retro_credits})
+        except Exception:
+            pass  # credit submission is best-effort
 
         grader  = http.post("/grader", json={"episode_id": obs["episode_id"]}).json()
         score   = float(grader.get("score", 0.01))

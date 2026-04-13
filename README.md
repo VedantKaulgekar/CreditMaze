@@ -66,7 +66,7 @@ The current benchmark content is intentionally varied across practical workflows
 | **PSIA** | Pivotal Step Identification Accuracy - did the agent assign highest credit to the true pivot? |
 | **CCE**  | Credit Calibration Error - MSE between agent credit estimates and ground-truth labels         |
 | **MPCS** | Multi-Pivot Coordination Score - fraction of jointly-pivotal steps found (Tier 4)             |
-| **TSR**  | Task Success Rate - did the underlying task succeed?                                           |
+| **TSR**  | Task Success Rate - did the underlying task succeed?                                          |
 
 ---
 
@@ -78,7 +78,7 @@ The current benchmark content is intentionally varied across practical workflows
 {
   "action_id": "string  (required) - must be in observation.available_actions",
   "reasoning": "string  (optional) - agent chain-of-thought",
-  "credit_estimate": "float   (optional) - agent-reported step importance [0.0, 1.0]"
+  "credit_estimate": "float   (legacy) - forward guess; use /credit endpoint for real PSIA measurement"
 }
 ```
 
@@ -106,13 +106,13 @@ The current benchmark content is intentionally varied across practical workflows
 
 For submission and evaluation, CreditMaze exposes three canonical benchmark tasks plus two additional hard-task variants.
 
-| Task ID             | Tier        | Domain    | Description                                                                                     |
-| ------------------- | ----------- | --------- | ----------------------------------------------------------------------------------------------- |
-| `task_easy`         | easy        | corridor  | Calibration task: identify the decisive route in a branching environment with plausible distractions. |
-| `task_medium`       | medium      | research  | Reconcile contradictory evidence without over-generalizing from persuasive but incomplete sources. |
+| Task ID             | Tier        | Domain    | Description                                                                                                  |
+| ------------------- | ----------- | --------- | ------------------------------------------------------------------------------------------------------------ |
+| `task_easy`         | easy        | corridor  | Calibration task: identify the decisive route in a branching environment with plausible distractions.        |
+| `task_medium`       | medium      | research  | Reconcile contradictory evidence without over-generalizing from persuasive but incomplete sources.           |
 | `task_hard`         | hard        | debugging | Fix the root-cause bug in the correct dependency order while visible symptom fixes tempt the agent off path. |
-| `resource_hard`     | hard        | resource  | Make the one irreversible resource commitment that preserves success before the window closes. |
-| `triage_multipivot` | multi-pivot | triage    | Identify multiple jointly-causal signals in a noisy investigation full of strong correlates. |
+| `resource_hard`     | hard        | resource  | Make the one irreversible resource commitment that preserves success before the window closes.               |
+| `triage_multipivot` | multi-pivot | triage    | Identify multiple jointly-causal signals in a noisy investigation full of strong correlates.                 |
 
 Internally, the canonical tasks map to the environment domains `corridor`, `research`, and `debugging`.
 
@@ -129,19 +129,22 @@ The underlying scenario templates now cover more practical settings such as bill
 
 ### Reward Function
 
-| Situation                             | Reward                       |
-| ------------------------------------- | ---------------------------- |
-| Early decoy step                      | 0.04                         |
-| Mid-episode decoy step                | 0.06 to 0.08                 |
-| Late decoy step                       | up to 0.10                   |
-| Correct pivot action (not final)      | 0.12                         |
-| Incorrect pivot action                | 0.0 (episode fails)          |
-| Episode success (final pivot correct) | 0.5 + 0.5 x efficiency_bonus |
-| Episode failure                       | 0.0                          |
+| Situation                        | Reward                           |
+| -------------------------------- | -------------------------------- |
+| Any in-progress step (all tiers) | **0.06 (uniform — intentional)** |
+| Incorrect pivot action           | 0.0 (episode fails immediately)  |
+| Episode success (last step)      | 0.5 + 0.5 × efficiency bonus     |
+| Episode failure (last step)      | 0.0                              |
 
-Invalid actions also terminate the episode with `0.0` reward.
+**Design intent — uniform rewards are the whole point.** Every in-progress step, including the decisive pivot, gives identical reward (0.06). This is by design: if the pivot gave higher reward, agents could locate it by following reward gradients instead of reasoning about causation. The large terminal reward (0.5–1.0) fires at the last step regardless of where the pivot was — also deliberate.
 
-**Design intent:** Step rewards are deliberately **non-revealing**. Some decoys become locally attractive later in the episode, so a reward-greedy policy can still focus on the wrong step.
+**Composite grader score:** `/grader` returns a PSIA-weighted composite, not a raw reward ratio:
+
+```
+score = 0.4 × TSR + 0.4 × PSIA + 0.2 × (1 − CCE)
+```
+
+An agent that succeeds but mis-attributes credit scores lower than one that both succeeds and correctly identifies the decisive step.
 
 ---
 
@@ -169,15 +172,16 @@ docker run -p 7860:7860 creditmaze:latest
 
 ## API Reference
 
-| Endpoint    | Method | Description                              |
-| ----------- | ------ | ---------------------------------------- |
-| `/reset`    | POST   | Start a new episode                      |
-| `/step`     | POST   | Submit one action                        |
-| `/state`    | GET    | Inspect episode state; causal labels appear only after completion |
-| `/tasks`    | GET    | List evaluator-facing task catalog       |
-| `/grader`   | POST   | Return final score, session metrics, and attribution diagnostics for a completed episode |
-| `/baseline` | POST   | Run the aggregate baseline script and return its JSON summary |
-| `/health`   | GET    | Health check                             |
+| Endpoint    | Method | Description                                                                                      |
+| ----------- | ------ | ------------------------------------------------------------------------------------------------ |
+| `/reset`    | POST   | Start a new episode                                                                              |
+| `/step`     | POST   | Submit one action                                                                                |
+| `/state`    | GET    | Inspect episode state; causal labels appear only after completion                                |
+| `/tasks`    | GET    | List evaluator-facing task catalog                                                               |
+| `/grader`   | POST   | Return final score, session metrics, and attribution diagnostics for a completed episode         |
+| `/credit`   | POST   | Submit retrospective credit map `{"step_index": float}` after episode ends — primary PSIA signal |
+| `/baseline` | POST   | Run the aggregate baseline script and return its JSON summary                                    |
+| `/health`   | GET    | Health check                                                                                     |
 
 ### `/grader` Output
 
@@ -201,6 +205,7 @@ The grader returns:
 For evaluator-compatible runs, use the root-level `inference.py` script. It uses the OpenAI client, reads `API_BASE_URL`, `MODEL_NAME`, and `HF_TOKEN` / `OPENAI_API_KEY` / `API_KEY`, emits strict `[START]`, `[STEP]`, and `[END]` lines, and can auto-start the local environment server when `ENV_URL` points at `localhost`.
 
 By default, `inference.py` runs every evaluator-facing task so the validator can observe multiple complete episodes:
+
 - `task_easy`
 - `task_medium`
 - `task_hard`
@@ -240,7 +245,7 @@ curl "http://localhost:7860/state?episode_id=abc12345"
 
 ## Baselines
 
-The default aggregate runner is `python baseline.py`. It runs the benchmark tiers, prints a human-readable summary, and emits one final JSON line that is also used by the `/baseline` endpoint.
+The default aggregate runner is `python baseline.py`. It runs all five tasks, submits retrospective credit via `/credit` after each episode, and emits one final JSON line consumed by the `/baseline` endpoint. Scores use the PSIA-weighted composite formula.
 
 Behavior:
 

@@ -281,11 +281,28 @@ class CreditMazeEnv:
         )
 
     def normalized_score(self, episode_id: str) -> float:
+        """
+        PSIA-weighted composite score in (0.01, 0.99).
+
+        Formula: 0.4 * TSR + 0.4 * PSIA + 0.2 * (1 - CCE)
+
+        TSR  — did the agent complete the task?
+        PSIA — did it correctly attribute credit to the decisive step?
+        CCE  — how well-calibrated were its credit estimates? (lower = better)
+
+        This ensures the score reflects credit assignment quality, not just
+        whether the agent happened to succeed. An agent that succeeds but
+        mis-attributes credit scores lower than one that both succeeds and
+        correctly identifies the causal step.
+        """
         ep = self._get_episode(episode_id)
-        max_reward = self._max_possible_reward(ep.episode)
-        if max_reward <= 0:
-            return 0.01
-        score = ep.cumulative_reward / max_reward
+        ep_metrics = ep.episode_metrics
+
+        tsr  = 1.0 if ep.outcome == "success" else 0.0
+        psia = float(ep_metrics.get("psia", 0.0)) if ep_metrics else 0.0
+        cce  = float(ep_metrics.get("cce",  0.5)) if ep_metrics else 0.5
+
+        score = 0.4 * tsr + 0.4 * psia + 0.2 * (1.0 - min(cce, 1.0))
         return round(min(max(score, 0.01), 0.99), 4)
 
     # ── helpers ───────────────────────────────────────────────────────────────

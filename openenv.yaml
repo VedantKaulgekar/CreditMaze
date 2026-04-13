@@ -7,11 +7,18 @@ environment:
     causal attribution quality across practical domains such as research synthesis, debugging,
     resource allocation, and multi-signal triage.
   author: Meta Hackathon Submission
-  tags: [causal-attribution, agent-evaluation, debugging, research, workflow-reasoning]
+  tags:
+    [
+      causal-attribution,
+      agent-evaluation,
+      debugging,
+      research,
+      workflow-reasoning,
+    ]
 
 tasks:
   - id: task_easy
-    description: "Introductory causal navigation trial: identify the decisive route in a long corridor workflow with plausible distractions."
+    description: "Incident triage (easy): identify the one causal signal from a set of high-correlation confounders in a real-world investigation workflow."
     difficulty: easy
     max_steps: 15
     grader:
@@ -21,7 +28,7 @@ tasks:
   - id: task_medium
     description: "Research synthesis task: reconcile credible but conflicting evidence without over-generalizing from persuasive decoys."
     difficulty: medium
-    max_steps: 15
+    max_steps: 20
     grader:
       type: llm
       prompt_template: >
@@ -29,7 +36,7 @@ tasks:
   - id: task_hard
     description: "Complex debugging task: choose the root-cause fix in the right dependency order while visible symptom fixes tempt the agent off path."
     difficulty: hard
-    max_steps: 15
+    max_steps: 18
     grader:
       type: llm
       prompt_template: >
@@ -37,7 +44,7 @@ tasks:
   - id: resource_hard
     description: "Resource-allocation task under pressure: lock in the one irreversible commitment that preserves the success path before the window closes."
     difficulty: hard
-    max_steps: 15
+    max_steps: 18
     grader:
       type: llm
       prompt_template: >
@@ -45,7 +52,7 @@ tasks:
   - id: triage_multipivot
     description: "Multi-pivot triage task: separate truly causal signals from persuasive correlates in a noisy investigation workflow."
     difficulty: hard
-    max_steps: 15
+    max_steps: 18
     grader:
       type: llm
       prompt_template: >
